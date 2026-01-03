@@ -7,6 +7,7 @@ import { Holdings } from './components/Holdings';
 import { TransactionHistory } from './components/TransactionHistory';
 import { TransactionHeatmap } from './components/TransactionHeatmap';
 import { DemurrageAlert } from './components/DemurrageAlert';
+import { TopHodls } from './components/TopHodls';
 import { NFTGallery } from './components/NFTGallery';
 import { AlertSystem } from './components/AlertSystem';
 import { ergoApi } from './services/ergoApi';
@@ -84,6 +85,7 @@ function App() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [transactionLimit, setTransactionLimit] = useState(20);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -201,6 +203,7 @@ function App() {
   // Re-fetch transactions when month changes
   const handleMonthChange = useCallback((month: Date) => {
     setSelectedMonth(month);
+    setSelectedDate(null); // Clear date filter when month changes
     if (address) {
       fetchTransactionsForMonth(address, month);
     }
@@ -304,16 +307,22 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-800 text-white p-6">
-      <Header
-        address={address}
-        isOnline={isOnline}
-        isLoading={isLoading}
-        error={error}
-        selectedMonth={selectedMonth}
-        onAddressSubmit={handleAddressSubmit}
-        onMonthChange={handleMonthChange}
-      />
+    <div className="min-h-screen bg-gray-800 text-white flex flex-col">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-50 bg-gray-800 px-6 pt-6 pb-4 border-b border-gray-700">
+        <Header
+          address={address}
+          isOnline={isOnline}
+          isLoading={isLoading}
+          error={error}
+          selectedMonth={selectedMonth}
+          onAddressSubmit={handleAddressSubmit}
+          onMonthChange={handleMonthChange}
+        />
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
 
       {!address && !isLoading && (
         <div className="flex items-center justify-center h-64">
@@ -340,9 +349,10 @@ function App() {
             <PieChart data={pieData} />
           </div>
 
-          {/* Summary and Demurrage row */}
-          <div className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-4 mb-6">
+          {/* Summary, Top Hodls, and Demurrage row */}
+          <div className="grid grid-cols-1 md:grid-cols-[50%_25%_25%] gap-4 mb-6">
             <WalletSummary holdings={holdings} />
+            <TopHodls holdings={holdings} />
             <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
           </div>
 
@@ -357,6 +367,8 @@ function App() {
               <TransactionHeatmap
                 transactions={transactions}
                 selectedMonth={selectedMonth}
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
               />
             </div>
             <div className="lg:col-span-2">
@@ -366,6 +378,8 @@ function App() {
                 isLoading={loadingTransactions}
                 limit={transactionLimit}
                 onLimitChange={setTransactionLimit}
+                selectedDate={selectedDate}
+                onClearDateFilter={() => setSelectedDate(null)}
               />
             </div>
           </div>
@@ -388,6 +402,7 @@ function App() {
         onToggleNotifications={toggleNotifications}
         notificationsEnabled={notificationsEnabled}
       />
+      </div>
     </div>
   );
 }
