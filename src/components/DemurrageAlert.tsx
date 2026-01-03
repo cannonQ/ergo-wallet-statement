@@ -28,10 +28,10 @@ export const DemurrageAlert: React.FC<DemurrageAlertProps> = ({ boxes, isLoading
 
   if (isLoading) {
     return (
-      <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
+      <div className="bg-gray-900 p-4 rounded-lg shadow-lg h-full">
         <div className="flex items-center space-x-2 mb-4">
           <Clock className="w-5 h-5 text-yellow-400" />
-          <h2 className="text-xl font-bold text-white">Storage Rent Alerts</h2>
+          <h2 className="text-lg font-bold text-white">Storage Rent Status</h2>
         </div>
         <div className="text-gray-400 text-center py-4">
           Checking boxes for demurrage...
@@ -42,14 +42,14 @@ export const DemurrageAlert: React.FC<DemurrageAlertProps> = ({ boxes, isLoading
 
   if (boxes.length === 0) {
     return (
-      <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
+      <div className="bg-gray-900 p-4 rounded-lg shadow-lg h-full">
         <div className="flex items-center space-x-2 mb-4">
           <CheckCircle className="w-5 h-5 text-green-400" />
-          <h2 className="text-xl font-bold text-white">Storage Rent Status</h2>
+          <h2 className="text-lg font-bold text-white">Storage Rent Status</h2>
         </div>
-        <div className="text-gray-400 text-center py-4">
+        <div className="text-gray-400 text-sm">
           <p>No boxes at risk of storage rent in the next year.</p>
-          <p className="text-sm mt-2">Ergo charges storage rent on boxes older than 4 years.</p>
+          <p className="mt-2">Ergo charges storage rent on boxes older than 4 years.</p>
         </div>
       </div>
     );

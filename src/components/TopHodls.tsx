@@ -21,7 +21,7 @@ export const TopHodls: React.FC<TopHodlsProps> = ({ holdings }) => {
     <div className="bg-gray-900 p-4 rounded-lg shadow-lg h-full">
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp className="w-5 h-5 text-purple-400" />
-        <h2 className="text-lg font-bold text-white">Top 5 Hodls</h2>
+        <h2 className="text-lg font-bold text-white">Top 5 Hodl</h2>
       </div>
 
       <div className="space-y-3">
@@ -50,7 +50,10 @@ export const TopHodls: React.FC<TopHodlsProps> = ({ holdings }) => {
                 <span className="text-gray-400 text-sm tabular-nums">
                   {formatNumber(holding.valueInErg)} ERG
                 </span>
-                <span className="text-purple-400 text-sm tabular-nums w-14 text-right">
+                <span
+                  className="text-sm tabular-nums w-14 text-right"
+                  style={{ color: colorConfig.primary }}
+                >
                   {formatNumber(portfolioPercent, 1)}%
                 </span>
               </div>

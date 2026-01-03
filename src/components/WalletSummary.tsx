@@ -104,11 +104,15 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
                   <td className="py-4 text-right text-white tabular-nums">
                     {formatNumber(summary.beginningBalance)}
                   </td>
-                  <td className={`py-4 text-right tabular-nums ${summary.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {summary.change >= 0 ? '+' : ''}{formatNumber(summary.change)}
+                  <td className={`py-4 text-right tabular-nums ${
+                    summary.change === 0 ? 'text-gray-400' : summary.change > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {summary.change > 0 ? '+' : ''}{formatNumber(summary.change)}
                   </td>
-                  <td className={`py-4 text-right tabular-nums ${changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {changePercent >= 0 ? '+' : ''}{isFinite(changePercent) ? changePercent.toFixed(2) : '0.00'}%
+                  <td className={`py-4 text-right tabular-nums ${
+                    changePercent === 0 ? 'text-gray-400' : changePercent > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {changePercent > 0 ? '+' : ''}{isFinite(changePercent) ? changePercent.toFixed(2) : '0.00'}%
                   </td>
                   <td className="py-4 text-right text-white tabular-nums">
                     {formatNumber(summary.endingBalance)}

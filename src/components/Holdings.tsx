@@ -93,15 +93,15 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
               return (
                 <button
                   key={category}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
+                  className={`px-4 py-2 rounded-lg transition-colors border ${
                     isSelected
-                      ? 'text-white border'
-                      : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700'
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
                   }`}
-                  style={isSelected ? {
-                    backgroundColor: colorConfig.bg,
-                    borderColor: colorConfig.primary
-                  } : undefined}
+                  style={{
+                    backgroundColor: isSelected ? colorConfig.bg : colorConfig.bgFaded,
+                    borderColor: isSelected ? colorConfig.primary : 'transparent'
+                  }}
                   onClick={() => setSelectedCategory(category)}
                 >
                   {category === 'Liquidity/Lending' ? 'Liquidity' : category}
@@ -126,12 +126,13 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
         <table className="w-full table-fixed">
           <colgroup>
             <col className="w-[200px]" /> {/* Token */}
-            <col className="w-[120px]" /> {/* Begin */}
+            <col className="w-[110px]" /> {/* Begin */}
             <col className="w-[80px]" />  {/* In */}
             <col className="w-[80px]" />  {/* Out */}
-            <col className="w-[120px]" /> {/* End */}
-            <col className="w-[140px]" /> {/* Value (ERG) */}
-            <col className="w-[100px]" /> {/* Change % */}
+            <col className="w-[110px]" /> {/* End */}
+            <col className="w-[80px]" />  {/* LP% */}
+            <col className="w-[120px]" /> {/* Value (ERG) */}
+            <col className="w-[80px]" /> {/* Change % */}
           </colgroup>
           <thead>
             <tr className="text-gray-400 border-b border-gray-800 text-sm">
@@ -150,6 +151,7 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
                   sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
                 )}
               </th>
+              <th className="pb-3 text-right font-medium">LP%</th>
               <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('valueInErg')}>
                 Value (ERG)
                 {sortField === 'valueInErg' && (
@@ -246,6 +248,11 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
                   <td className="py-3 text-right text-green-400 tabular-nums">+{formatNumber(holding.additions)}</td>
                   <td className="py-3 text-right text-red-400 tabular-nums">-{formatNumber(holding.reductions)}</td>
                   <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.endingBalance)}</td>
+                  <td className="py-3 text-right text-purple-400 tabular-nums">
+                    {lpInfo && lpInfo.lpTotalSupply && lpInfo.lpTotalSupply > 0
+                      ? `${((holding.endingBalance / lpInfo.lpTotalSupply) * 100).toFixed(4)}%`
+                      : '-'}
+                  </td>
                   <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.valueInErg)} ERG</td>
                   <td className={`py-3 text-right tabular-nums ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
