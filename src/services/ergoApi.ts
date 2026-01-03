@@ -549,6 +549,78 @@ class ErgoApiService {
   }
 
   /**
+   * Get monthly ending balances for the past N months
+   * Works backwards from current balance using transaction history
+   */
+  async getMonthlyBalanceHistory(
+    address: string,
+    months: number = 6
+  ): Promise<Array<{ month: string; balance: number }>> {
+    // Get current balance
+    const currentBalance = await this.getErgBalance(address);
+
+    // Get transactions for the past N months
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+
+    // Fetch all transactions in the date range
+    const response = await this.getAddressTransactions(address, {
+      limit: 500, // Fetch enough to cover history
+      offset: 0,
+    });
+
+    // Filter to transactions within our date range
+    const transactions = response.items.filter(
+      tx => tx.timestamp >= startDate.getTime()
+    );
+
+    // Calculate net change for each transaction
+    const txChanges = transactions.map(tx => {
+      const inputValue = tx.inputs
+        .filter(input => input.address === address)
+        .reduce((sum, input) => sum + input.value, 0);
+      const outputValue = tx.outputs
+        .filter(output => output.address === address)
+        .reduce((sum, output) => sum + output.value, 0);
+      return {
+        timestamp: tx.timestamp,
+        change: (outputValue - inputValue) / NANOERG_TO_ERG,
+      };
+    });
+
+    // Build monthly balances working backwards
+    const monthlyData: Array<{ month: string; balance: number }> = [];
+    let runningBalance = currentBalance;
+
+    for (let i = 0; i < months; i++) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+      const monthStart = monthDate.getTime();
+      const monthEndTs = monthEnd.getTime();
+
+      // For current month, use current balance
+      if (i === 0) {
+        monthlyData.unshift({
+          month: monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          balance: runningBalance,
+        });
+      } else {
+        // Subtract all changes from months after this one to get ending balance
+        const changesAfterMonth = txChanges.filter(tx => tx.timestamp > monthEndTs);
+        const totalChangeAfter = changesAfterMonth.reduce((sum, tx) => sum + tx.change, 0);
+        const balanceAtMonthEnd = currentBalance - totalChangeAfter;
+
+        monthlyData.unshift({
+          month: monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          balance: Math.max(0, balanceAtMonthEnd),
+        });
+      }
+    }
+
+    return monthlyData;
+  }
+
+  /**
    * Get full balance with tokens and their ERG values
    */
   async getFullBalanceWithPrices(address: string): Promise<{

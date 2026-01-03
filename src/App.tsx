@@ -66,11 +66,13 @@ function App() {
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [demurrageBoxes, setDemurrageBoxes] = useState<DemurrageBox[]>([]);
   const [nfts, setNfts] = useState<NFT[]>([]);
+  const [balanceHistory, setBalanceHistory] = useState<Array<{ month: string; balance: number }>>([]);
 
   // Loading states for individual sections
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [loadingDemurrage, setLoadingDemurrage] = useState(false);
   const [loadingNFTs, setLoadingNFTs] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // UI state
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -111,6 +113,7 @@ function App() {
     setTransactions([]);
     setDemurrageBoxes([]);
     setNfts([]);
+    setBalanceHistory([]);
 
     try {
       if (!ergoApi.isValidAddress(walletAddress)) {
@@ -135,6 +138,13 @@ function App() {
 
       // Fetch transactions for selected month in background
       fetchTransactionsForMonth(walletAddress, month);
+
+      // Fetch balance history for chart in background
+      setLoadingHistory(true);
+      ergoApi.getMonthlyBalanceHistory(walletAddress, 6)
+        .then(history => setBalanceHistory(history))
+        .catch(err => console.error('Failed to load balance history:', err))
+        .finally(() => setLoadingHistory(false));
 
       // Fetch demurrage boxes in background
       setLoadingDemurrage(true);
@@ -219,10 +229,14 @@ function App() {
     })),
   ] : [];
 
-  // Chart data - show balance (simplified since we don't have historical data)
+  // Chart data - show monthly balance history
   const chartData = {
-    labels: balance !== null ? ['Current Balance'] : [],
-    values: balance !== null ? [balance] : [],
+    labels: balanceHistory.length > 0
+      ? balanceHistory.map(h => h.month)
+      : (balance !== null ? ['Current'] : []),
+    values: balanceHistory.length > 0
+      ? balanceHistory.map(h => h.balance)
+      : (balance !== null ? [balance] : []),
   };
 
   // Pie chart data - distribution by category (ERG value)
