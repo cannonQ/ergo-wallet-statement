@@ -766,11 +766,20 @@ class ErgoApiService {
 
   /**
    * Get artwork URL from token's issuance box R9 register
+   * Note: The issuance box ID comes from token info, not the token ID itself
    */
   async getTokenArtworkUrl(tokenId: string): Promise<string | null> {
-    const box = await this.getTokenIssuanceBox(tokenId);
+    // First, get token info to find the actual issuance box ID
+    const tokenInfo = await this.getTokenInfo(tokenId);
+    if (!tokenInfo?.boxId) {
+      console.log(`No box ID found for token ${tokenId.slice(0, 8)}`);
+      return null;
+    }
+
+    // Fetch the issuance box (which contains R9)
+    const box = await this.getTokenIssuanceBox(tokenInfo.boxId);
     if (!box?.additionalRegisters?.R9) {
-      console.log(`No R9 register for token ${tokenId.slice(0, 8)}`);
+      console.log(`No R9 register for token ${tokenId.slice(0, 8)} (box: ${tokenInfo.boxId.slice(0, 8)})`);
       return null;
     }
 
