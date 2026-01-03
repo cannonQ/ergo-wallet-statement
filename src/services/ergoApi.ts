@@ -922,6 +922,7 @@ class ErgoApiService {
 
   /**
    * Identify NFTs from token list (tokens with amount = 1 and no decimals)
+   * Uses R7 register (EIP-4) for accurate type detection when available
    */
   async getNFTs(tokens: TokenBalance[]): Promise<Array<{
     tokenId: string;
@@ -936,23 +937,37 @@ class ErgoApiService {
     // Fetch info for each potential NFT
     const nfts = await Promise.all(
       potentialNFTs.slice(0, 20).map(async (token) => {
-        const [info, artworkUrl] = await Promise.all([
+        const [info, artworkUrl, eip4AssetType] = await Promise.all([
           this.getTokenInfo(token.tokenId),
           this.getTokenArtworkUrl(token.tokenId),
+          this.getTokenEip4AssetType(token.tokenId),
         ]);
         if (!info) return null;
 
-        // Determine type based on name or description
+        // Determine type - prefer R7 (EIP-4) if available, fallback to name/description
         let type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection' = 'NFT';
-        const nameLower = (info.name || '').toLowerCase();
-        const descLower = (info.description || '').toLowerCase();
 
-        if (nameLower.includes('audio') || descLower.includes('audio') || descLower.includes('music')) {
-          type = 'Audio';
-        } else if (nameLower.includes('video') || descLower.includes('video')) {
-          type = 'Video';
-        } else if (nameLower.includes('collection') || descLower.includes('collection')) {
-          type = 'Artwork Collection';
+        if (eip4AssetType) {
+          // Use EIP-4 R7 register for accurate type
+          if (eip4AssetType === 'audio') {
+            type = 'Audio';
+          } else if (eip4AssetType === 'video') {
+            type = 'Video';
+          } else {
+            type = 'NFT'; // picture
+          }
+        } else {
+          // Fallback: Determine type based on name or description
+          const nameLower = (info.name || '').toLowerCase();
+          const descLower = (info.description || '').toLowerCase();
+
+          if (nameLower.includes('audio') || descLower.includes('audio') || descLower.includes('music')) {
+            type = 'Audio';
+          } else if (nameLower.includes('video') || descLower.includes('video')) {
+            type = 'Video';
+          } else if (nameLower.includes('collection') || descLower.includes('collection')) {
+            type = 'Artwork Collection';
+          }
         }
 
         return {
