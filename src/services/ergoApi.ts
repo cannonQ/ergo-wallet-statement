@@ -1824,6 +1824,12 @@ class ErgoApiService {
       let valueInErg = 0;
       let displayName = t.name || t.tokenId.slice(0, 8) + '...';
 
+      // Check if we have a friendly LP pair name in our JSON mapping
+      const pairName = lpPairNames.get(t.tokenId);
+      if (pairName) {
+        displayName = `LP ${pairName}`;
+      }
+
       // Skip value calculation for artwork tokens (they don't have meaningful prices)
       if (!isArtwork) {
         // Check if this is an LP token
@@ -1831,11 +1837,6 @@ class ErgoApiService {
         if (poolInfo) {
           // This is an LP token - calculate value from pool TVL
           valueInErg = await this.getLpTokenValue(t.tokenId, amount);
-          // Use friendly pair name if available (e.g., "ERG/NETA" instead of LP token ID)
-          const pairName = lpPairNames.get(t.tokenId);
-          if (pairName) {
-            displayName = `LP ${pairName}`;
-          }
           console.log(`LP token ${displayName}: amount=${amount}, value=${valueInErg} ERG`);
         } else {
           // Regular token - use price from priceMap
