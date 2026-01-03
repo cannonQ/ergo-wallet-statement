@@ -3,19 +3,19 @@ import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface MonthPickerProps {
-  selectedDate: Date;
+  selectedMonth: Date;
   onChange: (date: Date) => void;
 }
 
-export const MonthPicker: React.FC<MonthPickerProps> = ({ selectedDate, onChange }) => {
+export const MonthPicker: React.FC<MonthPickerProps> = ({ selectedMonth, onChange }) => {
   const goToPreviousMonth = () => {
-    const newDate = new Date(selectedDate);
+    const newDate = new Date(selectedMonth);
     newDate.setMonth(newDate.getMonth() - 1);
     onChange(newDate);
   };
 
   const goToNextMonth = () => {
-    const newDate = new Date(selectedDate);
+    const newDate = new Date(selectedMonth);
     newDate.setMonth(newDate.getMonth() + 1);
     // Don't allow future months
     if (newDate <= new Date()) {
@@ -26,14 +26,14 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({ selectedDate, onChange
   const isCurrentMonth = () => {
     const now = new Date();
     return (
-      selectedDate.getMonth() === now.getMonth() &&
-      selectedDate.getFullYear() === now.getFullYear()
+      selectedMonth.getMonth() === now.getMonth() &&
+      selectedMonth.getFullYear() === now.getFullYear()
     );
   };
 
   // Get start and end of month for display
-  const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+  const monthStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+  const monthEnd = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
 
   return (
     <div className="flex items-center space-x-3 bg-gray-800 rounded-lg p-2">
@@ -48,7 +48,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({ selectedDate, onChange
 
       <div className="text-center min-w-[180px]">
         <div className="text-white font-semibold">
-          {format(selectedDate, 'MMMM yyyy')}
+          {format(selectedMonth, 'MMMM yyyy')}
         </div>
         <div className="text-gray-400 text-xs">
           {format(monthStart, 'MMM d')} - {format(monthEnd, 'MMM d, yyyy')}
