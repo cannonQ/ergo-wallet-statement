@@ -15,6 +15,7 @@ export interface Transaction {
 
 export interface Holding {
   token: string;
+  tokenId: string;
   amount: number;
   valueInErg: number;
   change24h: number;

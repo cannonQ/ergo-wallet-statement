@@ -113,19 +113,39 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredHoldings.map((holding) => (
-              <tr key={holding.token} className="border-b border-gray-800">
-                <td className="py-4 text-white">{holding.token}</td>
-                <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
-                <td className="py-4 text-right text-green-400">+{holding.additions.toFixed(1)}</td>
-                <td className="py-4 text-right text-red-400">-{holding.reductions.toFixed(1)}</td>
-                <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
-                <td className="py-4 text-right text-white">{holding.valueInErg.toFixed(2)} ERG</td>
-                <td className={`py-4 text-right ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
-                </td>
-              </tr>
-            ))}
+            {filteredHoldings.map((holding) => {
+              const displayName = holding.token.length > 20
+                ? holding.token.slice(0, 20) + '...'
+                : holding.token;
+              const shortTokenId = holding.tokenId ? holding.tokenId.slice(0, 5) : '';
+
+              return (
+                <tr key={holding.tokenId || holding.token} className="border-b border-gray-800">
+                  <td className="py-4 text-white">
+                    <span title={holding.token}>{displayName}</span>
+                    {shortTokenId && (
+                      <a
+                        href={`https://ergexplorer.com/token#${holding.tokenId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-gray-500 hover:text-blue-400 text-xs"
+                        title={holding.tokenId}
+                      >
+                        ({shortTokenId}...)
+                      </a>
+                    )}
+                  </td>
+                  <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
+                  <td className="py-4 text-right text-green-400">+{holding.additions.toFixed(1)}</td>
+                  <td className="py-4 text-right text-red-400">-{holding.reductions.toFixed(1)}</td>
+                  <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
+                  <td className="py-4 text-right text-white">{holding.valueInErg.toFixed(2)} ERG</td>
+                  <td className={`py-4 text-right ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

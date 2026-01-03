@@ -566,9 +566,12 @@ class ErgoApiService {
   /**
    * Get token prices from Spectrum DEX pools
    * Fetches pool data and calculates token prices from liquidity ratios
+   * Uses the pool with the largest liquidity for each token
    */
   async getSpectrumPoolPrices(tokenIds: string[]): Promise<Map<string, number>> {
     const priceMap = new Map<string, number>();
+    // Track the best pool (highest liquidity) for each token
+    const bestPoolLiquidity = new Map<string, number>();
 
     try {
       // Try the Spectrum pools endpoint
@@ -586,7 +589,7 @@ class ErgoApiService {
       const pools = await response.json();
       console.log('Spectrum pools response:', JSON.stringify(pools).slice(0, 500));
 
-      // Process pools to extract token prices
+      // Process pools to extract token prices - use pool with largest liquidity
       for (const pool of pools) {
         // Pools have x (ERG side) and y (token side) with reserves
         const ergReserve = pool.lockedX?.amount || pool.x?.amount || 0;
@@ -594,13 +597,22 @@ class ErgoApiService {
         const tokenId = pool.lockedY?.id || pool.y?.id;
 
         if (tokenId && ergReserve > 0 && tokenReserve > 0 && tokenIds.includes(tokenId)) {
-          // Price = ERG reserve / token reserve (adjusted for decimals)
-          const tokenDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
+          // Calculate liquidity value in ERG (TVL proxy)
           const ergDecimals = 9;
-          const price = (ergReserve / Math.pow(10, ergDecimals)) /
-                        (tokenReserve / Math.pow(10, tokenDecimals));
-          priceMap.set(tokenId, price);
-          console.log(`Pool price for ${tokenId.slice(0,8)}...: ${price.toFixed(6)} ERG`);
+          const liquidity = ergReserve / Math.pow(10, ergDecimals);
+
+          // Only update if this pool has more liquidity than previous best
+          const currentBest = bestPoolLiquidity.get(tokenId) || 0;
+          if (liquidity > currentBest) {
+            bestPoolLiquidity.set(tokenId, liquidity);
+
+            // Price = ERG reserve / token reserve (adjusted for decimals)
+            const tokenDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
+            const price = (ergReserve / Math.pow(10, ergDecimals)) /
+                          (tokenReserve / Math.pow(10, tokenDecimals));
+            priceMap.set(tokenId, price);
+            console.log(`Pool price for ${tokenId.slice(0,8)}...: ${price.toFixed(6)} ERG (liquidity: ${liquidity.toFixed(2)} ERG)`);
+          }
         }
       }
     } catch (error) {
@@ -611,15 +623,63 @@ class ErgoApiService {
   }
 
   /**
+   * Get ERG/USD price from SigUSD oracle pool
+   * This provides a reliable USD price for ERG from on-chain data
+   */
+  async getSigUsdOraclePrice(): Promise<number | null> {
+    try {
+      const response = await fetch('https://api.ergoplatform.com/api/v1/boxes/unspent/byErgoTree/100604000e20011d3364de07e5a26f0c4eef0852cddb387039a921b7154ef3cab22c6eda887f0400040204020402040204000402040004000402050005000580dac409040205c0d40105c0b4020504000e200ef9a5c723d58cc219cfba86c8a8ff010d0cede007e1a04893bd2c1fe6fa0c2c040004040400d808d601e4c6a70407d602b2a5dc64ed99a37300929dc1a7730191a39a72017302017303d63ed8058972027304d603b2db6308a773059593c272037306d801d604c27203e4c6a70511d1ed93b0b5a5d9010463edededede6720493e47204830200e6c6a70611e6c6a706089490720493e4c672040804eded93e4c6720408057307d801d605b2db63087204730800938c720501d801d606db63087205ede6c6720506089493c17205730993c27205d0720693e4c6720506050ec1a793e4c67205040e7204edededda720293c27202730a93db63087202db6308a7ded902030e7204720393c17202730b97a50992a3a1b27202730c00e4c67202050e93c2b2a5730d00d0cde4c6a7050e93e4c6a70407d805d603e4c6a7050ed60499b27203730e0073');
+
+      if (!response.ok) {
+        console.log('Oracle pool API not available:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.items && data.items.length > 0) {
+        // Parse oracle box to get ERG/USD rate
+        const oracleBox = data.items[0];
+        // Oracle stores rate in R4 register
+        if (oracleBox.additionalRegisters?.R4) {
+          const r4 = oracleBox.additionalRegisters.R4;
+          // R4 contains the nanERG per USD (as Long encoded as 05 + hex)
+          if (r4.startsWith('05')) {
+            // Decode VLQ Long
+            const hex = r4.slice(2);
+            let value = 0;
+            let shift = 0;
+            for (let i = 0; i < hex.length; i += 2) {
+              const byte = parseInt(hex.slice(i, i + 2), 16);
+              value |= (byte & 0x7f) << shift;
+              shift += 7;
+              if ((byte & 0x80) === 0) break;
+            }
+            // Convert nanoERG per USD to ERG per USD
+            const ergPerUsd = value / NANOERG_TO_ERG;
+            console.log(`SigUSD oracle: 1 USD = ${ergPerUsd.toFixed(6)} ERG`);
+            return ergPerUsd;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching SigUSD oracle price:', error);
+    }
+
+    return null;
+  }
+
+  // SigUSD token IDs (both old and new versions)
+  private readonly SIGUSD_TOKEN_IDS = [
+    '03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04', // Original SigUSD
+    'a55b8735ed1a99e46c2c89f8994aacdf4b1109bdcf682f1e5b34479c6e392669', // USE (newer stable)
+  ];
+
+  /**
    * Known stable token IDs and their approximate ERG prices
    * Used as fallback when APIs are unavailable
    */
   getKnownTokenPrices(): Map<string, number> {
     const priceMap = new Map<string, number>();
-
-    // SigUSD - stable at ~$1, so price depends on ERG price
-    // Using approximate 1 ERG = $0.80 means 1 SigUSD = 1.25 ERG
-    priceMap.set('03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04', 1.25);
 
     // SigRSV - reserve token, variable price but typically 0.001-0.01 ERG
     priceMap.set('003bd19d0187117f130b62e1bcab0939929ff5c7709f843c5c4dd158949285d0', 0.003);
@@ -641,37 +701,74 @@ class ErgoApiService {
    * Returns a map of tokenId -> price in ERG
    */
   async getTokenPrices(tokenIds: string[], address?: string): Promise<Map<string, number>> {
+    const priceMap = new Map<string, number>();
+
     // If we have an address, try the Crux positions endpoint first (most reliable)
     if (address) {
       const positions = await this.getCruxPositions([address]);
       if (positions.size > 0) {
         console.log(`Got ${positions.size} prices from Crux positions API`);
+        // Add SigUSD oracle price for any missing stables
+        await this.addOraclePricesForStables(positions, tokenIds);
         return positions;
       }
     }
 
-    // Fallback: try Spectrum pool prices
+    // Fallback: try Spectrum pool prices (uses largest LP pool)
     const poolPrices = await this.getSpectrumPoolPrices(tokenIds);
     if (poolPrices.size > 0) {
       console.log(`Got ${poolPrices.size} prices from Spectrum pools`);
+      // Add SigUSD oracle price for any missing stables
+      await this.addOraclePricesForStables(poolPrices, tokenIds);
       return poolPrices;
     }
 
-    // Last resort: use known token prices for common tokens
-    const knownPrices = this.getKnownTokenPrices();
-    const matchedPrices = new Map<string, number>();
-    for (const tokenId of tokenIds) {
-      if (knownPrices.has(tokenId)) {
-        matchedPrices.set(tokenId, knownPrices.get(tokenId)!);
+    // Try SigUSD oracle for stablecoins
+    const oraclePrice = await this.getSigUsdOraclePrice();
+    if (oraclePrice) {
+      for (const tokenId of tokenIds) {
+        if (this.SIGUSD_TOKEN_IDS.includes(tokenId)) {
+          // SigUSD/USE = $1, so price in ERG = oracle ERG/USD rate
+          priceMap.set(tokenId, oraclePrice);
+          console.log(`Using oracle price for ${tokenId.slice(0,8)}...: ${oraclePrice.toFixed(6)} ERG`);
+        }
       }
     }
-    if (matchedPrices.size > 0) {
-      console.log(`Using ${matchedPrices.size} known token prices as fallback`);
-      return matchedPrices;
+
+    // Add known token prices for common tokens
+    const knownPrices = this.getKnownTokenPrices();
+    for (const tokenId of tokenIds) {
+      if (!priceMap.has(tokenId) && knownPrices.has(tokenId)) {
+        priceMap.set(tokenId, knownPrices.get(tokenId)!);
+      }
+    }
+
+    if (priceMap.size > 0) {
+      console.log(`Using ${priceMap.size} prices from oracle/fallback`);
+      return priceMap;
     }
 
     console.log('No prices available from external APIs');
-    return new Map<string, number>();
+    return priceMap;
+  }
+
+  /**
+   * Add oracle prices for stablecoins if not already in the price map
+   */
+  private async addOraclePricesForStables(priceMap: Map<string, number>, tokenIds: string[]): Promise<void> {
+    const missingStables = tokenIds.filter(
+      id => this.SIGUSD_TOKEN_IDS.includes(id) && !priceMap.has(id)
+    );
+
+    if (missingStables.length > 0) {
+      const oraclePrice = await this.getSigUsdOraclePrice();
+      if (oraclePrice) {
+        for (const tokenId of missingStables) {
+          priceMap.set(tokenId, oraclePrice);
+          console.log(`Added oracle price for stable ${tokenId.slice(0,8)}...: ${oraclePrice.toFixed(6)} ERG`);
+        }
+      }
+    }
   }
 
   /**
