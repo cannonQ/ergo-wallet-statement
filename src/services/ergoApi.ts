@@ -85,15 +85,22 @@ export interface TokenInfo {
   decimals: number;
 }
 
+// Register value can be a string (hex) or an object with serialized/rendered values
+type RegisterValue = string | {
+  serializedValue?: string;
+  renderedValue?: string;
+  sigmaType?: string;
+};
+
 export interface IssuanceBox {
   boxId: string;
   additionalRegisters: {
-    R4?: string; // Token name (encoded)
-    R5?: string; // Token description (encoded)
-    R6?: string; // Token decimals (encoded)
-    R7?: string; // Asset type or collection ID
-    R8?: string; // SHA256 hash or additional info
-    R9?: string; // Artwork URL (encoded as Coll[Byte])
+    R4?: RegisterValue; // Token name (encoded)
+    R5?: RegisterValue; // Token description (encoded)
+    R6?: RegisterValue; // Token decimals (encoded)
+    R7?: RegisterValue; // Asset type or collection ID
+    R8?: RegisterValue; // SHA256 hash or additional info
+    R9?: RegisterValue; // Artwork URL (encoded as Coll[Byte])
   };
 }
 
@@ -767,8 +774,35 @@ class ErgoApiService {
       return null;
     }
 
-    console.log(`R9 raw value for ${tokenId.slice(0, 8)}: ${box.additionalRegisters.R9.slice(0, 50)}...`);
-    const artworkUrl = this.decodeRegisterToString(box.additionalRegisters.R9);
+    const r9Value = box.additionalRegisters.R9;
+
+    // R9 might be a string (serialized hex) or an object with renderedValue
+    let hexValue: string | null = null;
+
+    if (typeof r9Value === 'string') {
+      hexValue = r9Value;
+    } else if (typeof r9Value === 'object' && r9Value !== null) {
+      // Explorer API might return { serializedValue: "...", renderedValue: "..." }
+      hexValue = r9Value.serializedValue || r9Value.renderedValue || null;
+      // If renderedValue is already decoded, use it directly
+      if (r9Value.renderedValue && typeof r9Value.renderedValue === 'string') {
+        const rendered = r9Value.renderedValue;
+        console.log(`R9 renderedValue for ${tokenId.slice(0, 8)}: "${rendered.slice(0, 60)}..."`);
+        // Check if it looks like a URL or CID
+        if (rendered.startsWith('http') || rendered.startsWith('ipfs://') ||
+            rendered.startsWith('bafy') || rendered.startsWith('Qm')) {
+          return rendered;
+        }
+      }
+    }
+
+    if (!hexValue || typeof hexValue !== 'string') {
+      console.log(`R9 is not a valid string for token ${tokenId.slice(0, 8)}:`, typeof r9Value);
+      return null;
+    }
+
+    console.log(`R9 raw value for ${tokenId.slice(0, 8)}: ${hexValue.slice(0, 50)}...`);
+    const artworkUrl = this.decodeRegisterToString(hexValue);
     return artworkUrl;
   }
 
