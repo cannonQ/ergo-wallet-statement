@@ -4,8 +4,8 @@
 // Use the public Ergo Explorer API
 const API_BASE_URL = 'https://api.ergoplatform.com/api/v1';
 
-// Spectrum Finance API for token prices
-const SPECTRUM_API_URL = 'https://api.spectrum.fi/v1';
+// Crux Finance API for token prices (uses Spectrum data)
+const CRUX_API_URL = 'https://api.cruxfinance.io';
 
 // Ergo has 10^9 nanoErgs per ERG
 const NANOERG_TO_ERG = 1_000_000_000;
@@ -426,47 +426,47 @@ class ErgoApiService {
   }
 
   /**
-   * Get token prices from Spectrum Finance AMM
+   * Get price for a single token from Crux Finance API
+   * Returns price in ERG or 0 if not found
+   */
+  async getTokenPrice(tokenId: string): Promise<number> {
+    try {
+      const response = await fetch(`${CRUX_API_URL}/spectrum/price?token_id=${tokenId}`);
+      if (!response.ok) {
+        return 0;
+      }
+      const data = await response.json();
+      // Crux API returns price in ERG
+      return parseFloat(data.price) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Get token prices from Crux Finance API (uses Spectrum data)
    * Returns a map of tokenId -> price in ERG
    */
-  async getTokenPrices(): Promise<Map<string, number>> {
+  async getTokenPrices(tokenIds: string[]): Promise<Map<string, number>> {
     const priceMap = new Map<string, number>();
 
+    // Fetch prices for all tokens in parallel (with a reasonable limit)
+    const tokensToFetch = tokenIds.slice(0, 20); // Limit to 20 tokens
+
+    const pricePromises = tokensToFetch.map(async (tokenId) => {
+      const price = await this.getTokenPrice(tokenId);
+      return { tokenId, price };
+    });
+
     try {
-      const response = await fetch(`${SPECTRUM_API_URL}/amm/markets`);
-      if (!response.ok) {
-        console.error('Failed to fetch Spectrum markets:', response.status);
-        return priceMap;
-      }
-
-      const markets = await response.json();
-
-      // Process each market to extract token prices
-      // Markets are pairs like ERG/SigUSD, so we calculate prices relative to ERG
-      for (const market of markets) {
-        try {
-          // Market structure: { baseId, baseSymbol, quoteId, quoteSymbol, lastPrice, ... }
-          const baseId = market.baseId;
-          const quoteId = market.quoteId;
-          const baseSymbol = market.baseSymbol?.toUpperCase() || '';
-          const quoteSymbol = market.quoteSymbol?.toUpperCase() || '';
-          const lastPrice = parseFloat(market.lastPrice) || 0;
-
-          if (lastPrice > 0) {
-            // If base is ERG, quote token price = 1/lastPrice ERG
-            // If quote is ERG, base token price = lastPrice ERG
-            if (baseSymbol === 'ERG' && quoteId) {
-              priceMap.set(quoteId, 1 / lastPrice);
-            } else if (quoteSymbol === 'ERG' && baseId) {
-              priceMap.set(baseId, lastPrice);
-            }
-          }
-        } catch {
-          // Skip malformed market entries
+      const results = await Promise.all(pricePromises);
+      for (const { tokenId, price } of results) {
+        if (price > 0) {
+          priceMap.set(tokenId, price);
         }
       }
     } catch (error) {
-      console.error('Error fetching token prices from Spectrum:', error);
+      console.error('Error fetching token prices from Crux:', error);
     }
 
     return priceMap;
@@ -485,11 +485,12 @@ class ErgoApiService {
       valueInErg: number;
     }>;
   }> {
-    // Fetch balance and prices in parallel
-    const [balance, priceMap] = await Promise.all([
-      this.getAddressBalance(address),
-      this.getTokenPrices(),
-    ]);
+    // Fetch balance first
+    const balance = await this.getAddressBalance(address);
+
+    // Extract token IDs and fetch prices
+    const tokenIds = balance.tokens.map(t => t.tokenId);
+    const priceMap = await this.getTokenPrices(tokenIds);
 
     const tokens = balance.tokens.map(t => {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
