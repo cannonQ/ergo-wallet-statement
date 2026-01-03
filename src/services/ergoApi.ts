@@ -1827,7 +1827,7 @@ class ErgoApiService {
       // Check if we have a friendly LP pair name in our JSON mapping
       const pairName = lpPairNames.get(t.tokenId);
       if (pairName) {
-        displayName = `LP ${pairName}`;
+        displayName = pairName;
       }
 
       // Skip value calculation for artwork tokens (they don't have meaningful prices)
