@@ -1669,7 +1669,7 @@ class ErgoApiService {
 
   /**
    * Get full balance with tokens and their ERG values
-   * Marks EIP-4 artwork tokens so they can be filtered from Holdings
+   * Marks NFT-like tokens (amount=1, decimals=0) so they can be filtered from Holdings
    */
   async getFullBalanceWithPrices(address: string): Promise<{
     ergBalance: number;
@@ -1685,37 +1685,18 @@ class ErgoApiService {
     // Fetch balance first
     const balance = await this.getAddressBalance(address);
 
-    // Identify potential NFTs (amount = 1, decimals = 0) to check R7
-    const potentialNftIds = balance.tokens
-      .filter(t => t.amount === 1 && t.decimals === 0)
-      .map(t => t.tokenId);
+    // Identify NFT-like tokens (amount = 1, decimals = 0) - these go to NFT Gallery, not Holdings
+    // This matches the same criteria used in getNFTs()
+    const nftLikeTokenIds = new Set(
+      balance.tokens
+        .filter(t => t.amount === 1 && t.decimals === 0)
+        .map(t => t.tokenId)
+    );
+    console.log(`Found ${nftLikeTokenIds.size} NFT-like tokens (amount=1, decimals=0) to filter from Holdings`);
 
-    // Check R7 for potential NFTs to identify EIP-4 artwork tokens
-    // This runs in parallel to identify artwork before price fetching
-    const artworkSet = new Set<string>();
-    if (potentialNftIds.length > 0) {
-      console.log(`Checking R7 for ${potentialNftIds.length} potential NFTs...`);
-      const BATCH_SIZE = 5;
-      for (let i = 0; i < potentialNftIds.length; i += BATCH_SIZE) {
-        const batch = potentialNftIds.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map(async tokenId => {
-            const assetType = await this.getTokenEip4AssetType(tokenId);
-            return { tokenId, isArtwork: assetType !== null };
-          })
-        );
-        for (const { tokenId, isArtwork } of results) {
-          if (isArtwork) {
-            artworkSet.add(tokenId);
-          }
-        }
-      }
-      console.log(`Found ${artworkSet.size} EIP-4 artwork tokens`);
-    }
-
-    // Extract token IDs for price fetching, excluding artwork tokens
+    // Extract token IDs for price fetching, excluding NFT-like tokens
     const tokenIdsForPricing = balance.tokens
-      .filter(t => !artworkSet.has(t.tokenId))
+      .filter(t => !nftLikeTokenIds.has(t.tokenId))
       .map(t => t.tokenId);
     const priceMap = await this.getTokenPrices(tokenIdsForPricing, address);
 
@@ -1728,10 +1709,10 @@ class ErgoApiService {
     // Process tokens, calculating LP values separately
     const tokensWithValues = await Promise.all(balance.tokens.map(async t => {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
-      const isArtwork = artworkSet.has(t.tokenId);
+      const isArtwork = nftLikeTokenIds.has(t.tokenId);
       let valueInErg = 0;
 
-      // Skip value calculation for artwork tokens
+      // Skip value calculation for NFT-like tokens (they don't have meaningful prices)
       if (!isArtwork) {
         // Check if this is an LP token
         const poolInfo = poolCache.get(t.tokenId);
