@@ -70,9 +70,9 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
         return;
       }
 
-      // Get token IDs (excluding ERG which has no token ID)
+      // Get token IDs (excluding ERG and NFTs which have amount = 1)
       const tokenIds = holdings
-        .filter(h => h.tokenId && h.tokenId.length === 64)
+        .filter(h => h.tokenId && h.tokenId.length === 64 && h.amount !== 1)
         .map(h => h.tokenId);
 
       if (tokenIds.length === 0) {

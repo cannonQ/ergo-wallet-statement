@@ -28,12 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const timeWindowNum = time_window ? Number(time_window) : timePointNum;
 
-  // Convert from milliseconds to seconds (Crux API expects seconds)
-  const timePointSeconds = Math.floor(timePointNum / 1000);
+  // Crux API expects:
+  // - time_point in milliseconds
+  // - time_window in seconds
+  const timePointMs = timePointNum;
   const timeWindowSeconds = Math.floor(timeWindowNum / 1000);
 
   try {
-    const url = `${CRUX_API_URL}/spectrum/price_stats?token_id=${token_id}&time_point=${timePointSeconds}&time_window=${timeWindowSeconds}`;
+    const url = `${CRUX_API_URL}/spectrum/price_stats?token_id=${token_id}&time_point=${timePointMs}&time_window=${timeWindowSeconds}`;
 
     const response = await fetch(url, {
       headers: { 'Accept': 'application/json' },
