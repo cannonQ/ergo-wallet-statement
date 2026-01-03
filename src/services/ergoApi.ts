@@ -502,52 +502,124 @@ class ErgoApiService {
   }
 
   /**
-   * Get price for a single token from Crux Finance API
-   * Returns price in ERG or 0 if not found
+   * Get token positions with prices from Crux Finance API
+   * Uses POST /crux/positions endpoint that returns all token data with prices
    */
-  async getTokenPrice(tokenId: string): Promise<number> {
+  async getCruxPositions(addresses: string[]): Promise<Map<string, number>> {
+    const priceMap = new Map<string, number>();
+
     try {
-      const response = await fetch(`${CRUX_API_URL}/spectrum/price?token_id=${tokenId}`);
+      const response = await fetch(`${CRUX_API_URL}/crux/positions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(addresses),
+      });
+
       if (!response.ok) {
-        return 0;
+        console.error('Crux positions API error:', response.status);
+        return priceMap;
       }
+
       const data = await response.json();
-      // Try different possible field names for price
-      const price = data.price ?? data.erg_price ?? data.priceInErg ?? data.ergPrice ?? 0;
-      return parseFloat(price) || 0;
+      console.log('Crux positions response:', JSON.stringify(data).slice(0, 500));
+
+      // Parse the response - Crux returns array of position objects
+      // Each position has: tokenId, amount, price (current price in ERG)
+      const positions = Array.isArray(data) ? data : data.positions || data.data || [];
+
+      for (const position of positions) {
+        // Try different field names for token ID and price
+        const tokenId = position.tokenId || position.token_id || position.id;
+        // Price might be nested in priceInfo object or at top level
+        const priceInfo = position.priceInfo || position.price_info || position;
+        const price = priceInfo.price || priceInfo.currentPrice || priceInfo.ergPrice ||
+                      position.price || position.currentPrice || position.ergPrice || 0;
+
+        if (tokenId && price > 0) {
+          priceMap.set(tokenId, parseFloat(price));
+          console.log(`Token ${tokenId.slice(0,8)}... price: ${price} ERG`);
+        }
+      }
     } catch (err) {
-      console.error(`Error fetching price for ${tokenId}:`, err);
-      return 0;
+      console.error('Error fetching positions from Crux:', err);
     }
+
+    return priceMap;
+  }
+
+  /**
+   * Get token prices from Spectrum DEX pools
+   * Fetches pool data and calculates token prices from liquidity ratios
+   */
+  async getSpectrumPoolPrices(tokenIds: string[]): Promise<Map<string, number>> {
+    const priceMap = new Map<string, number>();
+
+    try {
+      // Try the Spectrum pools endpoint
+      const response = await fetch('https://api.spectrum.fi/v1/amm/pools/stats', {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.log('Spectrum pools API not available:', response.status);
+        return priceMap;
+      }
+
+      const pools = await response.json();
+      console.log('Spectrum pools response:', JSON.stringify(pools).slice(0, 500));
+
+      // Process pools to extract token prices
+      for (const pool of pools) {
+        // Pools have x (ERG side) and y (token side) with reserves
+        const ergReserve = pool.lockedX?.amount || pool.x?.amount || 0;
+        const tokenReserve = pool.lockedY?.amount || pool.y?.amount || 0;
+        const tokenId = pool.lockedY?.id || pool.y?.id;
+
+        if (tokenId && ergReserve > 0 && tokenReserve > 0 && tokenIds.includes(tokenId)) {
+          // Price = ERG reserve / token reserve (adjusted for decimals)
+          const tokenDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
+          const ergDecimals = 9;
+          const price = (ergReserve / Math.pow(10, ergDecimals)) /
+                        (tokenReserve / Math.pow(10, tokenDecimals));
+          priceMap.set(tokenId, price);
+          console.log(`Pool price for ${tokenId.slice(0,8)}...: ${price.toFixed(6)} ERG`);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching Spectrum pool prices:', error);
+    }
+
+    return priceMap;
   }
 
   /**
    * Get token prices from Crux Finance API (uses Spectrum data)
    * Returns a map of tokenId -> price in ERG
    */
-  async getTokenPrices(tokenIds: string[]): Promise<Map<string, number>> {
-    const priceMap = new Map<string, number>();
-
-    // Fetch prices for all tokens in parallel (with a reasonable limit)
-    const tokensToFetch = tokenIds.slice(0, 20); // Limit to 20 tokens
-
-    const pricePromises = tokensToFetch.map(async (tokenId) => {
-      const price = await this.getTokenPrice(tokenId);
-      return { tokenId, price };
-    });
-
-    try {
-      const results = await Promise.all(pricePromises);
-      for (const { tokenId, price } of results) {
-        if (price > 0) {
-          priceMap.set(tokenId, price);
-        }
+  async getTokenPrices(tokenIds: string[], address?: string): Promise<Map<string, number>> {
+    // If we have an address, try the Crux positions endpoint first (most reliable)
+    if (address) {
+      const positions = await this.getCruxPositions([address]);
+      if (positions.size > 0) {
+        console.log(`Got ${positions.size} prices from Crux positions API`);
+        return positions;
       }
-    } catch (error) {
-      console.error('Error fetching token prices from Crux:', error);
     }
 
-    return priceMap;
+    // Fallback: try Spectrum pool prices
+    const poolPrices = await this.getSpectrumPoolPrices(tokenIds);
+    if (poolPrices.size > 0) {
+      console.log(`Got ${poolPrices.size} prices from Spectrum pools`);
+      return poolPrices;
+    }
+
+    console.log('No prices available from external APIs');
+    return new Map<string, number>();
   }
 
   /**
@@ -638,9 +710,12 @@ class ErgoApiService {
     // Fetch balance first
     const balance = await this.getAddressBalance(address);
 
-    // Extract token IDs and fetch prices
+    // Extract token IDs and fetch prices (pass address for Crux positions endpoint)
     const tokenIds = balance.tokens.map(t => t.tokenId);
-    const priceMap = await this.getTokenPrices(tokenIds);
+    const priceMap = await this.getTokenPrices(tokenIds, address);
+
+    console.log('Price map size:', priceMap.size);
+    console.log('Token IDs:', tokenIds.slice(0, 5));
 
     const tokens = balance.tokens.map(t => {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
