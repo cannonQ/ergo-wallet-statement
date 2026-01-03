@@ -74,6 +74,9 @@ function App() {
   const [loadingNFTs, setLoadingNFTs] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Token movements (In/Out) for selected month
+  const [tokenMovements, setTokenMovements] = useState<Map<string, { additions: number; reductions: number }>>(new Map());
+
   // UI state
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -83,22 +86,32 @@ function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // Fetch transactions for selected month
+  // Fetch transactions and token movements for selected month
   const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date) => {
     setLoadingTransactions(true);
     try {
-      const result = await ergoApi.getMonthTransactions(
-        walletAddress,
-        month.getFullYear(),
-        month.getMonth(),
-        100 // Fetch up to 100 transactions, UI will limit display
-      );
-      setTransactions(result.transactions);
-      setTotalTransactions(result.total);
+      // Fetch transactions and token movements in parallel
+      const [txResult, movements] = await Promise.all([
+        ergoApi.getMonthTransactions(
+          walletAddress,
+          month.getFullYear(),
+          month.getMonth(),
+          100 // Fetch up to 100 transactions, UI will limit display
+        ),
+        ergoApi.getTokenMovements(
+          walletAddress,
+          month.getFullYear(),
+          month.getMonth()
+        ),
+      ]);
+      setTransactions(txResult.transactions);
+      setTotalTransactions(txResult.total);
+      setTokenMovements(movements);
     } catch (err) {
       console.error('Failed to load transactions:', err);
       setTransactions([]);
       setTotalTransactions(0);
+      setTokenMovements(new Map());
     } finally {
       setLoadingTransactions(false);
     }
@@ -215,6 +228,9 @@ function App() {
 
   // Convert tokens to Holdings format for the original components
   // Note: ERG shows selected month's ending balance, tokens show current values
+  // Get ERG movements for the month (stored with pseudo ID '__ERG__')
+  const ergMovement = tokenMovements.get('__ERG__') || { additions: 0, reductions: 0 };
+
   const holdings: Holding[] = balance !== null ? [
     // ERG holding - use selected month's balance
     {
@@ -224,45 +240,66 @@ function App() {
       valueInErg: selectedMonthBalance, // ERG value = ERG amount
       change24h: 0,
       category: 'ERG' as const,
-      beginningBalance: selectedMonthBalance,
-      additions: 0,
-      reductions: 0,
+      beginningBalance: selectedMonthBalance - ergMovement.additions + ergMovement.reductions,
+      additions: ergMovement.additions,
+      reductions: ergMovement.reductions,
       endingBalance: selectedMonthBalance,
     },
     // Token holdings with ERG values from Crux Finance prices (current values)
-    ...tokens.map(token => ({
-      token: token.name,
-      tokenId: token.tokenId,
-      amount: token.amount,
-      valueInErg: token.valueInErg, // ERG equivalent from Crux prices
-      change24h: 0,
-      category: categorizeToken(token.name),
-      beginningBalance: token.valueInErg,
-      additions: 0,
-      reductions: 0,
-      endingBalance: token.valueInErg,
-    })),
+    ...tokens.map(token => {
+      // Get movement for this token, adjusting for decimals
+      const rawMovement = tokenMovements.get(token.tokenId) || { additions: 0, reductions: 0 };
+      const divisor = token.decimals > 0 ? Math.pow(10, token.decimals) : 1;
+      const additions = rawMovement.additions / divisor;
+      const reductions = rawMovement.reductions / divisor;
+
+      return {
+        token: token.name,
+        tokenId: token.tokenId,
+        amount: token.amount,
+        valueInErg: token.valueInErg, // ERG equivalent from Crux prices
+        change24h: 0,
+        category: categorizeToken(token.name),
+        beginningBalance: token.amount - additions + reductions,
+        additions,
+        reductions,
+        endingBalance: token.amount,
+      };
+    }),
   ] : [];
 
-  // Chart data - show monthly balance history
+  // Calculate current values by category
+  const currentErgValue = holdings.filter(h => h.category === 'ERG').reduce((sum, h) => sum + h.valueInErg, 0);
+  const currentStablesValue = holdings.filter(h => h.category === 'Stables').reduce((sum, h) => sum + h.valueInErg, 0);
+  const currentLiquidityValue = holdings.filter(h => h.category === 'Liquidity/Lending').reduce((sum, h) => sum + h.valueInErg, 0);
+  const currentTokensValue = holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0);
+
+  // Chart data - stacked area chart showing value breakdown by category
+  // For historical months, we only have ERG balance. Token values are shown for current month only.
+  const chartLabels = balanceHistory.length > 0
+    ? balanceHistory.map(h => h.month)
+    : (balance !== null ? ['Current'] : []);
+
   const chartData = {
-    labels: balanceHistory.length > 0
-      ? balanceHistory.map(h => h.month)
-      : (balance !== null ? ['Current'] : []),
-    values: balanceHistory.length > 0
+    labels: chartLabels,
+    erg: balanceHistory.length > 0
       ? balanceHistory.map(h => h.balance)
-      : (balance !== null ? [balance] : []),
+      : (balance !== null ? [currentErgValue] : []),
+    stables: balanceHistory.length > 0
+      ? balanceHistory.map((_, i) => i === balanceHistory.length - 1 ? currentStablesValue : 0)
+      : (balance !== null ? [currentStablesValue] : []),
+    liquidity: balanceHistory.length > 0
+      ? balanceHistory.map((_, i) => i === balanceHistory.length - 1 ? currentLiquidityValue : 0)
+      : (balance !== null ? [currentLiquidityValue] : []),
+    tokens: balanceHistory.length > 0
+      ? balanceHistory.map((_, i) => i === balanceHistory.length - 1 ? currentTokensValue : 0)
+      : (balance !== null ? [currentTokensValue] : []),
   };
 
   // Pie chart data - distribution by category (ERG value)
   const pieData = {
     labels: ['ERG', 'Stables', 'Tokens', 'LP Tokens'],
-    values: [
-      holdings.filter(h => h.category === 'ERG').reduce((sum, h) => sum + h.valueInErg, 0),
-      holdings.filter(h => h.category === 'Stables').reduce((sum, h) => sum + h.valueInErg, 0),
-      holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0),
-      holdings.filter(h => h.category === 'Liquidity/Lending').reduce((sum, h) => sum + h.valueInErg, 0),
-    ],
+    values: [currentErgValue, currentStablesValue, currentTokensValue, currentLiquidityValue],
   };
 
   return (

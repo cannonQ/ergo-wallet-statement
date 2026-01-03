@@ -26,7 +26,10 @@ ChartJS.register(
 interface ChartProps {
   data: {
     labels: string[];
-    values: number[];
+    erg: number[];
+    stables: number[];
+    liquidity: number[];
+    tokens: number[];
   };
 }
 
@@ -36,10 +39,35 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
     datasets: [
       {
         fill: true,
-        label: 'Balance',
-        data: data.values,
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        label: 'ERG',
+        data: data.erg,
+        borderColor: 'rgb(234, 179, 8)',
+        backgroundColor: 'rgba(234, 179, 8, 0.6)',
+        stack: 'stack0',
+      },
+      {
+        fill: true,
+        label: 'Stables',
+        data: data.stables,
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgba(34, 197, 94, 0.6)',
+        stack: 'stack0',
+      },
+      {
+        fill: true,
+        label: 'LP Tokens',
+        data: data.liquidity,
+        borderColor: 'rgb(168, 85, 247)',
+        backgroundColor: 'rgba(168, 85, 247, 0.6)',
+        stack: 'stack0',
+      },
+      {
+        fill: true,
+        label: 'Tokens',
+        data: data.tokens,
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+        stack: 'stack0',
       },
     ],
   };
@@ -52,24 +80,38 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
         position: 'top' as const,
         labels: {
           color: 'white',
+          usePointStyle: true,
+          padding: 15,
         },
       },
       title: {
         display: true,
-        text: 'Wallet History',
+        text: 'Wallet History (Total Value in ERG)',
         color: 'white',
         font: {
           size: 16,
         },
       },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+        callbacks: {
+          footer: (tooltipItems: any[]) => {
+            const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
+            return `Total: ${total.toFixed(2)} ERG`;
+          },
+        },
+      },
     },
     scales: {
       y: {
+        stacked: true,
         grid: {
           color: 'rgba(255, 255, 255, 0.1)',
         },
         ticks: {
           color: 'white',
+          callback: (value: any) => `${value} ERG`,
         },
       },
       x: {
@@ -80,6 +122,11 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
           color: 'white',
         },
       },
+    },
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false,
     },
   };
 
