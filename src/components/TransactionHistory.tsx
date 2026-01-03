@@ -22,7 +22,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   isLoading = false,
 }) => {
   const openExplorer = (txId: string) => {
-    window.open(`https://explorer.ergoplatform.com/en/transactions/${txId}`, '_blank');
+    window.open(`https://ergexplorer.com/transactions#${txId}`, '_blank');
   };
 
   return (
@@ -100,14 +100,9 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
       {total > transactions.length && (
         <div className="mt-4 pt-4 border-t border-gray-800 text-center">
-          <a
-            href={`https://explorer.ergoplatform.com/en/addresses/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 text-sm"
-          >
-            View all {total.toLocaleString()} transactions on Explorer →
-          </a>
+          <span className="text-gray-400 text-sm">
+            Showing {transactions.length} of {total.toLocaleString()} transactions this month
+          </span>
         </div>
       )}
     </div>

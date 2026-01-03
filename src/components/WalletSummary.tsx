@@ -16,9 +16,10 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
   
   const getCategorySummary = (category: string): CategorySummary => {
     const categoryHoldings = holdings.filter(h => h.category === category);
+    // Use valueInErg for ERG equivalent values consistently
     const endingBalance = categoryHoldings.reduce((sum, h) => sum + h.valueInErg, 0);
-    // Use beginning balance from holdings if available, otherwise use ending balance
-    const beginningBalance = categoryHoldings.reduce((sum, h) => sum + h.beginningBalance, 0) || endingBalance;
+    // Beginning balance should also be ERG equivalent (currently same as ending without historical data)
+    const beginningBalance = endingBalance;
     const change = endingBalance - beginningBalance;
 
     return {
