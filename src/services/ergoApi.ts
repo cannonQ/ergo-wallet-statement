@@ -534,26 +534,35 @@ class ErgoApiService {
         // Try different field names for token ID (Crux uses 'id' or 'token_id')
         const tokenId = position.tokenId || position.token_id || position.id;
 
-        // Try different field names for price in ERG
-        // Crux API uses: price_erg, priceInfo.erg, price.erg, or value_in_erg
+        // Get the amount for this position (needed to calculate price from total value)
+        const amount = position.amount || position.tokenAmount || 0;
+
+        // Try different field names for PRICE PER TOKEN in ERG
+        // NOTE: value_in_erg is TOTAL VALUE (amount * price), not per-token price!
+        // Crux API uses: price_erg, priceInfo.erg, price.erg for per-token price
         let price = 0;
-        if (position.price_erg !== undefined) {
+
+        // First, try direct price per token fields
+        if (position.price_erg !== undefined && position.price_erg > 0) {
           price = position.price_erg;
-        } else if (position.priceInfo?.erg !== undefined) {
+        } else if (position.priceInfo?.erg !== undefined && position.priceInfo.erg > 0) {
           price = position.priceInfo.erg;
-        } else if (position.price?.erg !== undefined) {
+        } else if (position.price?.erg !== undefined && position.price.erg > 0) {
           price = position.price.erg;
-        } else if (position.value_in_erg !== undefined) {
-          price = position.value_in_erg;
-        } else if (position.currentPrice !== undefined) {
+        } else if (position.currentPrice !== undefined && position.currentPrice > 0) {
           price = position.currentPrice;
-        } else if (typeof position.price === 'number') {
+        } else if (typeof position.price === 'number' && position.price > 0) {
           price = position.price;
+        }
+        // If we have value_in_erg (total value) and amount, calculate per-token price
+        else if (position.value_in_erg !== undefined && amount > 0) {
+          price = position.value_in_erg / amount;
+          console.log(`Calculated price from value_in_erg: ${position.value_in_erg} / ${amount} = ${price}`);
         }
 
         if (tokenId && price > 0) {
           priceMap.set(tokenId, parseFloat(String(price)));
-          console.log(`Token ${tokenId.slice(0,8)}... price: ${price} ERG`);
+          console.log(`Token ${tokenId.slice(0,8)}... price: ${price.toFixed(6)} ERG`);
         }
       }
     } catch (err) {
