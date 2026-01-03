@@ -818,13 +818,23 @@ class ErgoApiService {
   /**
    * Convert IPFS URL or CID to gateway URL
    * Using ipfs.io gateway as it's the most stable
-   * Handles: ipfs:// URLs, raw CIDv0 (Qm...), raw CIDv1 (bafy...)
+   * Handles: ipfs:// URLs, raw CIDv0 (Qm...), raw CIDv1 (bafy...), http URLs
    */
   ipfsToGatewayUrl(url: string): string {
     if (!url) return url;
 
-    // Already a full URL (http/https)
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    // Upgrade http to https for ipfs.io URLs
+    if (url.startsWith('http://ipfs.io')) {
+      return url.replace('http://', 'https://');
+    }
+
+    // Already a full HTTPS URL
+    if (url.startsWith('https://')) {
+      return url;
+    }
+
+    // http URLs (non-ipfs) - return as-is, browser will handle
+    if (url.startsWith('http://')) {
       return url;
     }
 
