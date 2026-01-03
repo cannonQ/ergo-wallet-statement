@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowDownLeft, ArrowUpRight, History, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatNumber } from '../constants';
 
 interface Transaction {
   id: string;
@@ -18,7 +19,7 @@ interface TransactionHistoryProps {
   onLimitChange: (limit: number) => void;
 }
 
-const LIMIT_OPTIONS = [5, 10, 25, 50, 100];
+const LIMIT_OPTIONS = [20, 40, 60, 100];
 
 export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   transactions,
@@ -59,60 +60,47 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
       </div>
 
       {isLoading ? (
-        <div className="text-center py-4 text-gray-400 text-sm">
+        <div className="text-center py-8 text-gray-400 text-sm">
           Loading transactions...
         </div>
       ) : displayedTransactions.length === 0 ? (
-        <div className="text-center py-4 text-gray-400 text-sm">
+        <div className="text-center py-8 text-gray-400 text-sm">
           No transactions found
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="grid grid-cols-4 gap-2">
           {displayedTransactions.map((tx) => (
             <div
               key={tx.id}
-              className="flex items-center justify-between p-2 bg-gray-800 rounded hover:bg-gray-750 transition-colors cursor-pointer"
+              className="p-2 bg-gray-800 rounded hover:bg-gray-750 transition-colors cursor-pointer group"
               onClick={() => openExplorer(tx.id)}
+              title={`${tx.type === 'incoming' ? 'Received' : 'Sent'} ${formatNumber(tx.amount, 4)} ERG\n${format(tx.timestamp, 'MMM d, yyyy HH:mm')}\n${tx.id}`}
             >
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between mb-1">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
                     tx.type === 'incoming'
                       ? 'bg-green-500/20 text-green-400'
                       : 'bg-red-500/20 text-red-400'
                   }`}
                 >
                   {tx.type === 'incoming' ? (
-                    <ArrowDownLeft className="w-4 h-4" />
+                    <ArrowDownLeft className="w-3 h-3" />
                   ) : (
-                    <ArrowUpRight className="w-4 h-4" />
+                    <ArrowUpRight className="w-3 h-3" />
                   )}
                 </div>
-                <div>
-                  <div className="text-white text-sm font-medium">
-                    {tx.type === 'incoming' ? 'Received' : 'Sent'}
-                  </div>
-                  <div className="text-gray-400 text-xs">
-                    {format(tx.timestamp, 'MMM d, HH:mm')}
-                  </div>
-                </div>
+                <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-gray-400" />
               </div>
-
-              <div className="flex items-center space-x-2">
-                <div className="text-right">
-                  <div
-                    className={`text-sm font-medium ${
-                      tx.type === 'incoming' ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                    {tx.type === 'incoming' ? '+' : '-'}
-                    {tx.amount.toFixed(4)} ERG
-                  </div>
-                  <div className="text-gray-500 text-xs font-mono">
-                    {tx.id.slice(0, 6)}...{tx.id.slice(-4)}
-                  </div>
-                </div>
-                <ExternalLink className="w-3 h-3 text-gray-500" />
+              <div
+                className={`text-xs font-medium truncate ${
+                  tx.type === 'incoming' ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {tx.type === 'incoming' ? '+' : '-'}{formatNumber(tx.amount, 2)}
+              </div>
+              <div className="text-gray-500 text-xs truncate">
+                {format(tx.timestamp, 'MMM d')}
               </div>
             </div>
           ))}

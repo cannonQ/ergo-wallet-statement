@@ -5,6 +5,7 @@ import { PieChart } from './components/PieChart';
 import { WalletSummary } from './components/WalletSummary';
 import { Holdings } from './components/Holdings';
 import { TransactionHistory } from './components/TransactionHistory';
+import { TransactionHeatmap } from './components/TransactionHeatmap';
 import { DemurrageAlert } from './components/DemurrageAlert';
 import { NFTGallery } from './components/NFTGallery';
 import { AlertSystem } from './components/AlertSystem';
@@ -82,7 +83,7 @@ function App() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [transactionLimit, setTransactionLimit] = useState(5);
+  const [transactionLimit, setTransactionLimit] = useState(20);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -350,15 +351,23 @@ function App() {
             <Holdings holdings={holdings} />
           </div>
 
-          {/* Transaction History */}
-          <div className="mb-6">
-            <TransactionHistory
-              transactions={transactions}
-              total={totalTransactions}
-              isLoading={loadingTransactions}
-              limit={transactionLimit}
-              onLimitChange={setTransactionLimit}
-            />
+          {/* Transaction Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-1">
+              <TransactionHeatmap
+                transactions={transactions}
+                selectedMonth={selectedMonth}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <TransactionHistory
+                transactions={transactions}
+                total={totalTransactions}
+                isLoading={loadingTransactions}
+                limit={transactionLimit}
+                onLimitChange={setTransactionLimit}
+              />
+            </div>
           </div>
 
           {/* NFT Gallery */}

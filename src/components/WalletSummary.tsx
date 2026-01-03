@@ -6,6 +6,8 @@ interface CategorySummary {
   beginningBalance: number;
   endingBalance: number;
   change: number;
+  additions: number;
+  reductions: number;
 }
 
 interface WalletSummaryProps {
@@ -17,16 +19,52 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
 
   const getCategorySummary = (category: string): CategorySummary => {
     const categoryHoldings = holdings.filter(h => h.category === category);
-    // Use valueInErg for ERG equivalent values consistently
+
+    // For ERG, use the ERG amounts directly
+    // For other categories, use valueInErg for ending balance
+    if (category === 'ERG') {
+      // ERG amounts are already in ERG, so beginningBalance, additions, reductions are all in ERG
+      const beginningBalance = categoryHoldings.reduce((sum, h) => sum + h.beginningBalance, 0);
+      const additions = categoryHoldings.reduce((sum, h) => sum + h.additions, 0);
+      const reductions = categoryHoldings.reduce((sum, h) => sum + h.reductions, 0);
+      const endingBalance = categoryHoldings.reduce((sum, h) => sum + h.endingBalance, 0);
+      const change = additions - reductions;
+
+      return {
+        beginningBalance: isNaN(beginningBalance) ? 0 : beginningBalance,
+        endingBalance: isNaN(endingBalance) ? 0 : endingBalance,
+        change: isNaN(change) ? 0 : change,
+        additions: isNaN(additions) ? 0 : additions,
+        reductions: isNaN(reductions) ? 0 : reductions,
+      };
+    }
+
+    // For tokens, stables, and LP - show ending value in ERG
+    // Change is calculated from net token movements (can't get historical ERG price)
     const endingBalance = categoryHoldings.reduce((sum, h) => sum + h.valueInErg, 0);
-    // Beginning balance should also be ERG equivalent (currently same as ending without historical data)
-    const beginningBalance = endingBalance;
-    const change = endingBalance - beginningBalance;
+    // Estimate beginning balance using current prices (approximation)
+    const totalAdditions = categoryHoldings.reduce((sum, h) => sum + h.additions, 0);
+    const totalReductions = categoryHoldings.reduce((sum, h) => sum + h.reductions, 0);
+    const totalEnding = categoryHoldings.reduce((sum, h) => sum + h.endingBalance, 0);
+
+    // Calculate approximate ERG value of changes using current token prices
+    // Change in tokens * current price per token = change in ERG
+    let changeInErg = 0;
+    for (const h of categoryHoldings) {
+      const pricePerToken = h.endingBalance > 0 ? h.valueInErg / h.endingBalance : 0;
+      const netChange = h.additions - h.reductions;
+      changeInErg += netChange * pricePerToken;
+    }
+
+    // Beginning balance = ending balance - change
+    const beginningBalance = endingBalance - changeInErg;
 
     return {
-      beginningBalance: isNaN(beginningBalance) ? 0 : beginningBalance,
+      beginningBalance: isNaN(beginningBalance) ? 0 : Math.max(0, beginningBalance),
       endingBalance: isNaN(endingBalance) ? 0 : endingBalance,
-      change: isNaN(change) ? 0 : change
+      change: isNaN(changeInErg) ? 0 : changeInErg,
+      additions: totalAdditions,
+      reductions: totalReductions,
     };
   };
 
