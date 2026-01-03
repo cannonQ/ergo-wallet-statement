@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, ExternalLink, Music, Video, Palette } from 'lucide-react';
 
 interface NFT {
@@ -14,9 +14,16 @@ interface NFTGalleryProps {
 }
 
 export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false }) => {
+  const [selectedType, setSelectedType] = useState<string>('All');
+  const types = ['All', 'NFT', 'Audio', 'Video', 'Artwork Collection'];
+
   const openExplorer = (tokenId: string) => {
-    window.open(`https://explorer.ergoplatform.com/en/token/${tokenId}`, '_blank');
+    window.open(`https://ergexplorer.com/token#${tokenId}`, '_blank');
   };
+
+  const filteredNfts = selectedType === 'All'
+    ? nfts
+    : nfts.filter(nft => nft.type === selectedType);
 
   const getIcon = (type: NFT['type']) => {
     switch (type) {
@@ -80,11 +87,28 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
           <Image className="w-5 h-5 text-pink-400" />
           <h2 className="text-xl font-bold text-white">NFTs & Collectibles</h2>
         </div>
-        <span className="text-gray-400 text-sm">{nfts.length} item{nfts.length !== 1 ? 's' : ''}</span>
+        <span className="text-gray-400 text-sm">{filteredNfts.length} of {nfts.length} item{nfts.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Filter buttons */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {types.map((type) => (
+          <button
+            key={type}
+            className={`px-3 py-1 rounded-lg text-sm ${
+              selectedType === type
+                ? 'bg-pink-600 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+            onClick={() => setSelectedType(type)}
+          >
+            {type}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {nfts.map((nft) => (
+        {filteredNfts.map((nft) => (
           <div
             key={nft.tokenId}
             className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
