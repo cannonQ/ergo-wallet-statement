@@ -85,6 +85,18 @@ export interface TokenInfo {
   decimals: number;
 }
 
+export interface IssuanceBox {
+  boxId: string;
+  additionalRegisters: {
+    R4?: string; // Token name (encoded)
+    R5?: string; // Token description (encoded)
+    R6?: string; // Token decimals (encoded)
+    R7?: string; // Asset type or collection ID
+    R8?: string; // SHA256 hash or additional info
+    R9?: string; // Artwork URL (encoded as Coll[Byte])
+  };
+}
+
 class ErgoApiService {
   private baseUrl: string;
   private currentHeight: number | null = null;
@@ -374,6 +386,65 @@ class ErgoApiService {
   }
 
   /**
+   * Get the issuance box for a token (contains registers with artwork URL)
+   */
+  async getTokenIssuanceBox(tokenId: string): Promise<IssuanceBox | null> {
+    try {
+      // The issuance box ID is the same as the token ID
+      const response = await fetch(`${this.baseUrl}/boxes/${tokenId}`);
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Decode a hex-encoded register value to string
+   * Ergo registers are encoded as: 0e + length (2 hex chars) + hex string
+   */
+  decodeRegisterToString(hexValue: string): string | null {
+    try {
+      // Check for Coll[Byte] prefix (0e)
+      if (!hexValue.startsWith('0e')) {
+        return null;
+      }
+      // Skip prefix (0e) and length bytes, decode the rest as UTF-8
+      const hexContent = hexValue.slice(4); // Skip '0e' + 2 length chars
+      const bytes = new Uint8Array(
+        hexContent.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+      );
+      return new TextDecoder().decode(bytes);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get artwork URL from token's issuance box R9 register
+   */
+  async getTokenArtworkUrl(tokenId: string): Promise<string | null> {
+    const box = await this.getTokenIssuanceBox(tokenId);
+    if (!box?.additionalRegisters?.R9) {
+      return null;
+    }
+
+    const artworkUrl = this.decodeRegisterToString(box.additionalRegisters.R9);
+    return artworkUrl;
+  }
+
+  /**
+   * Convert IPFS URL to gateway URL
+   */
+  ipfsToGatewayUrl(url: string): string {
+    if (url.startsWith('ipfs://')) {
+      const hash = url.replace('ipfs://', '');
+      return `https://cloudflare-ipfs.com/ipfs/${hash}`;
+    }
+    return url;
+  }
+
+  /**
    * Identify NFTs from token list (tokens with amount = 1 and no decimals)
    */
   async getNFTs(tokens: TokenBalance[]): Promise<Array<{
@@ -381,6 +452,7 @@ class ErgoApiService {
     name: string;
     description: string;
     type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection';
+    artworkUrl: string | null;
   }>> {
     // Filter potential NFTs (amount = 1, decimals = 0)
     const potentialNFTs = tokens.filter(t => t.amount === 1 && t.decimals === 0);
@@ -388,7 +460,10 @@ class ErgoApiService {
     // Fetch info for each potential NFT
     const nfts = await Promise.all(
       potentialNFTs.slice(0, 20).map(async (token) => {
-        const info = await this.getTokenInfo(token.tokenId);
+        const [info, artworkUrl] = await Promise.all([
+          this.getTokenInfo(token.tokenId),
+          this.getTokenArtworkUrl(token.tokenId),
+        ]);
         if (!info) return null;
 
         // Determine type based on name or description
@@ -409,6 +484,7 @@ class ErgoApiService {
           name: info.name || token.tokenId.slice(0, 8) + '...',
           description: info.description || 'No description',
           type,
+          artworkUrl: artworkUrl ? this.ipfsToGatewayUrl(artworkUrl) : null,
         };
       })
     );
