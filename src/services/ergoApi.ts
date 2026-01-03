@@ -133,10 +133,17 @@ export interface HistoricalPriceData {
 
 // EIP-4 asset type codes (R7 register values)
 // Reference: https://github.com/ergoplatform/eips/blob/master/eip-0004.md
+// Serialized format: 0e02 prefix + 2 bytes
+// Rendered format: just the 2 bytes (0101, 0102, 0103)
 export const EIP4_ASSET_TYPES = {
+  // Serialized (hex with Coll[Byte] prefix)
   NFT_PICTURE: '0e020101',
   NFT_AUDIO: '0e020102',
   NFT_VIDEO: '0e020103',
+  // Rendered (decoded 2-byte values)
+  NFT_PICTURE_RENDERED: '0101',
+  NFT_AUDIO_RENDERED: '0102',
+  NFT_VIDEO_RENDERED: '0103',
 } as const;
 
 export type Eip4AssetType = 'picture' | 'audio' | 'video' | null;
@@ -777,9 +784,9 @@ class ErgoApiService {
   /**
    * Check if a token is an EIP-4 artwork type by examining the R7 register
    * R7 contains asset type for EIP-4 tokens:
-   * - 0e020101 = NFT picture
-   * - 0e020102 = NFT audio
-   * - 0e020103 = NFT video
+   * - 0e020101 / 0101 = NFT picture
+   * - 0e020102 / 0102 = NFT audio
+   * - 0e020103 / 0103 = NFT video
    * Returns the asset type or null if not an EIP-4 artwork
    */
   async getTokenEip4AssetType(tokenId: string): Promise<Eip4AssetType> {
@@ -798,25 +805,29 @@ class ErgoApiService {
 
       const r7Value = box.additionalRegisters.R7;
 
-      // R7 might be a string (serialized hex) or an object
-      let hexValue: string | null = null;
+      // R7 might be a string (serialized hex) or an object with serializedValue/renderedValue
+      let serializedValue: string | null = null;
+      let renderedValue: string | null = null;
+
       if (typeof r7Value === 'string') {
-        hexValue = r7Value;
+        serializedValue = r7Value;
       } else if (typeof r7Value === 'object' && r7Value !== null) {
-        hexValue = r7Value.serializedValue || null;
+        serializedValue = r7Value.serializedValue || null;
+        renderedValue = r7Value.renderedValue || null;
       }
 
-      if (!hexValue) {
-        return null;
+      // Check serialized format (0e020101, etc.)
+      if (serializedValue) {
+        if (serializedValue === EIP4_ASSET_TYPES.NFT_PICTURE) return 'picture';
+        if (serializedValue === EIP4_ASSET_TYPES.NFT_AUDIO) return 'audio';
+        if (serializedValue === EIP4_ASSET_TYPES.NFT_VIDEO) return 'video';
       }
 
-      // Check for EIP-4 asset type codes
-      if (hexValue === EIP4_ASSET_TYPES.NFT_PICTURE) {
-        return 'picture';
-      } else if (hexValue === EIP4_ASSET_TYPES.NFT_AUDIO) {
-        return 'audio';
-      } else if (hexValue === EIP4_ASSET_TYPES.NFT_VIDEO) {
-        return 'video';
+      // Check rendered format (0101, 0102, 0103)
+      if (renderedValue) {
+        if (renderedValue === EIP4_ASSET_TYPES.NFT_PICTURE_RENDERED) return 'picture';
+        if (renderedValue === EIP4_ASSET_TYPES.NFT_AUDIO_RENDERED) return 'audio';
+        if (renderedValue === EIP4_ASSET_TYPES.NFT_VIDEO_RENDERED) return 'video';
       }
 
       return null;
@@ -1669,7 +1680,9 @@ class ErgoApiService {
 
   /**
    * Get full balance with tokens and their ERG values
-   * Marks NFT-like tokens (amount=1, decimals=0) so they can be filtered from Holdings
+   * Marks artwork tokens so they can be filtered from Holdings:
+   * - Tokens with amount=1 and decimals=0 (classic NFTs)
+   * - Tokens with decimals=0 and EIP-4 R7 artwork type (multi-copy NFTs)
    */
   async getFullBalanceWithPrices(address: string): Promise<{
     ergBalance: number;
@@ -1685,18 +1698,42 @@ class ErgoApiService {
     // Fetch balance first
     const balance = await this.getAddressBalance(address);
 
-    // Identify NFT-like tokens (amount = 1, decimals = 0) - these go to NFT Gallery, not Holdings
-    // This matches the same criteria used in getNFTs()
-    const nftLikeTokenIds = new Set(
+    // Start with tokens that are definitely NFT-like (amount=1, decimals=0)
+    const artworkTokenIds = new Set(
       balance.tokens
         .filter(t => t.amount === 1 && t.decimals === 0)
         .map(t => t.tokenId)
     );
-    console.log(`Found ${nftLikeTokenIds.size} NFT-like tokens (amount=1, decimals=0) to filter from Holdings`);
 
-    // Extract token IDs for price fetching, excluding NFT-like tokens
+    // Also check R7 for tokens with decimals=0 but amount > 1 (multi-copy NFTs like "Rocket Wolf")
+    const potentialMultiCopyNfts = balance.tokens.filter(
+      t => t.decimals === 0 && t.amount > 1 && !artworkTokenIds.has(t.tokenId)
+    );
+
+    if (potentialMultiCopyNfts.length > 0) {
+      console.log(`Checking R7 for ${potentialMultiCopyNfts.length} potential multi-copy NFTs...`);
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < potentialMultiCopyNfts.length; i += BATCH_SIZE) {
+        const batch = potentialMultiCopyNfts.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async t => {
+            const assetType = await this.getTokenEip4AssetType(t.tokenId);
+            return { tokenId: t.tokenId, isArtwork: assetType !== null };
+          })
+        );
+        for (const { tokenId, isArtwork } of results) {
+          if (isArtwork) {
+            artworkTokenIds.add(tokenId);
+          }
+        }
+      }
+    }
+
+    console.log(`Found ${artworkTokenIds.size} artwork tokens to filter from Holdings`);
+
+    // Extract token IDs for price fetching, excluding artwork tokens
     const tokenIdsForPricing = balance.tokens
-      .filter(t => !nftLikeTokenIds.has(t.tokenId))
+      .filter(t => !artworkTokenIds.has(t.tokenId))
       .map(t => t.tokenId);
     const priceMap = await this.getTokenPrices(tokenIdsForPricing, address);
 
@@ -1709,10 +1746,10 @@ class ErgoApiService {
     // Process tokens, calculating LP values separately
     const tokensWithValues = await Promise.all(balance.tokens.map(async t => {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
-      const isArtwork = nftLikeTokenIds.has(t.tokenId);
+      const isArtwork = artworkTokenIds.has(t.tokenId);
       let valueInErg = 0;
 
-      // Skip value calculation for NFT-like tokens (they don't have meaningful prices)
+      // Skip value calculation for artwork tokens (they don't have meaningful prices)
       if (!isArtwork) {
         // Check if this is an LP token
         const poolInfo = poolCache.get(t.tokenId);
