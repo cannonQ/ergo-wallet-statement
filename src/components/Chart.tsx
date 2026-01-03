@@ -11,6 +11,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { CATEGORY_COLORS, formatNumber } from '../constants';
 
 ChartJS.register(
   CategoryScale,
@@ -41,32 +42,32 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
         fill: true,
         label: 'ERG',
         data: data.erg,
-        borderColor: 'rgb(234, 179, 8)',
-        backgroundColor: 'rgba(234, 179, 8, 0.6)',
+        borderColor: CATEGORY_COLORS.ERG.border,
+        backgroundColor: CATEGORY_COLORS.ERG.bg,
         stack: 'stack0',
       },
       {
         fill: true,
         label: 'Stables',
         data: data.stables,
-        borderColor: 'rgb(34, 197, 94)',
-        backgroundColor: 'rgba(34, 197, 94, 0.6)',
+        borderColor: CATEGORY_COLORS.Stables.border,
+        backgroundColor: CATEGORY_COLORS.Stables.bg,
         stack: 'stack0',
       },
       {
         fill: true,
         label: 'LP Tokens',
         data: data.liquidity,
-        borderColor: 'rgb(168, 85, 247)',
-        backgroundColor: 'rgba(168, 85, 247, 0.6)',
+        borderColor: CATEGORY_COLORS['Liquidity/Lending'].border,
+        backgroundColor: CATEGORY_COLORS['Liquidity/Lending'].bg,
         stack: 'stack0',
       },
       {
         fill: true,
         label: 'Tokens',
         data: data.tokens,
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+        borderColor: CATEGORY_COLORS.Tokens.border,
+        backgroundColor: CATEGORY_COLORS.Tokens.bg,
         stack: 'stack0',
       },
     ],
@@ -96,9 +97,13 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
         mode: 'index' as const,
         intersect: false,
         callbacks: {
+          label: (context: any) => {
+            const value = context.parsed.y;
+            return `${context.dataset.label}: ${formatNumber(value)} ERG`;
+          },
           footer: (tooltipItems: any[]) => {
             const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
-            return `Total: ${total.toFixed(2)} ERG`;
+            return `Total: ${formatNumber(total)} ERG`;
           },
         },
       },
@@ -111,7 +116,7 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
         },
         ticks: {
           color: 'white',
-          callback: (value: any) => `${value} ERG`,
+          callback: (value: any) => `${formatNumber(value, 0)} ERG`,
         },
       },
       x: {

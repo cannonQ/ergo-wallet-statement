@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Holding } from '../types';
+import { getCategoryColor, formatNumber } from '../constants';
 
 interface CategorySummary {
   beginningBalance: number;
@@ -13,7 +14,7 @@ interface WalletSummaryProps {
 
 export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
   const categories = ['ERG', 'Stables', 'Liquidity/Lending', 'Tokens'];
-  
+
   const getCategorySummary = (category: string): CategorySummary => {
     const categoryHoldings = holdings.filter(h => h.category === category);
     // Use valueInErg for ERG equivalent values consistently
@@ -49,21 +50,30 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
               const changePercent = summary.beginningBalance > 0
                 ? ((summary.change / summary.beginningBalance) * 100)
                 : 0;
+              const colorConfig = getCategoryColor(category);
 
               return (
                 <tr key={category} className="border-b border-gray-800">
-                  <td className="py-4 text-white">{category}</td>
-                  <td className="py-4 text-right text-white">
-                    {summary.beginningBalance.toFixed(2)}
+                  <td className="py-4">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: colorConfig.primary }}
+                      />
+                      <span className="text-white">{category}</span>
+                    </div>
                   </td>
-                  <td className={`py-4 text-right ${summary.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {summary.change >= 0 ? '+' : ''}{summary.change.toFixed(2)}
+                  <td className="py-4 text-right text-white tabular-nums">
+                    {formatNumber(summary.beginningBalance)}
                   </td>
-                  <td className={`py-4 text-right ${changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <td className={`py-4 text-right tabular-nums ${summary.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {summary.change >= 0 ? '+' : ''}{formatNumber(summary.change)}
+                  </td>
+                  <td className={`py-4 text-right tabular-nums ${changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {changePercent >= 0 ? '+' : ''}{isFinite(changePercent) ? changePercent.toFixed(2) : '0.00'}%
                   </td>
-                  <td className="py-4 text-right text-white">
-                    {summary.endingBalance.toFixed(2)}
+                  <td className="py-4 text-right text-white tabular-nums">
+                    {formatNumber(summary.endingBalance)}
                   </td>
                 </tr>
               );

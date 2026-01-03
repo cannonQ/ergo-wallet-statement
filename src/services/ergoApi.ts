@@ -392,112 +392,169 @@ class ErgoApiService {
     }
   }
 
+  // Cache for Spectrum pool data (LP token ID -> pool info)
+  private spectrumPoolCache: Map<string, { token1: { id: string; name: string; ticker: string }; token2: { id: string; name: string; ticker: string }; tvl: number }> | null = null;
+  private poolCacheFetchedAt: number = 0;
+
   /**
-   * Get LP token pair information by fetching the minting transaction
+   * Fetch and cache Spectrum pool data
+   * Maps LP token ID to pool pair information
+   */
+  private async getSpectrumPoolCache(): Promise<Map<string, { token1: { id: string; name: string; ticker: string }; token2: { id: string; name: string; ticker: string }; tvl: number }>> {
+    // Cache for 5 minutes
+    if (this.spectrumPoolCache && Date.now() - this.poolCacheFetchedAt < 300000) {
+      return this.spectrumPoolCache;
+    }
+
+    const poolMap = new Map<string, { token1: { id: string; name: string; ticker: string }; token2: { id: string; name: string; ticker: string }; tvl: number }>();
+    const ERG_ID = '0000000000000000000000000000000000000000000000000000000000000000';
+
+    try {
+      const response = await fetch('https://api.spectrum.fi/v1/amm/pools/stats', {
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.log('Failed to fetch Spectrum pools for LP info');
+        return poolMap;
+      }
+
+      const pools = await response.json();
+
+      for (const pool of pools) {
+        // Get LP token ID from pool data
+        const lpTokenId = pool.lp?.id || pool.lpToken?.id || pool.lpId;
+        if (!lpTokenId) continue;
+
+        // Get X token (first in pair)
+        const xId = pool.lockedX?.id || pool.x?.id || '';
+        const xTicker = pool.lockedX?.ticker || pool.x?.ticker || '';
+        const xName = pool.lockedX?.name || pool.x?.name || xTicker;
+
+        // Get Y token (second in pair)
+        const yId = pool.lockedY?.id || pool.y?.id || '';
+        const yTicker = pool.lockedY?.ticker || pool.y?.ticker || '';
+        const yName = pool.lockedY?.name || pool.y?.name || yTicker;
+
+        // Get TVL for value calculation
+        const tvl = pool.tvl || pool.liquidity || 0;
+
+        // Determine token1 and token2 (ERG always first if present)
+        let token1, token2;
+        if (xId === ERG_ID || xTicker === 'ERG') {
+          token1 = { id: xId, name: 'ERG', ticker: 'ERG' };
+          token2 = { id: yId, name: yName, ticker: yTicker || yId.slice(0, 5) };
+        } else if (yId === ERG_ID || yTicker === 'ERG') {
+          token1 = { id: yId, name: 'ERG', ticker: 'ERG' };
+          token2 = { id: xId, name: xName, ticker: xTicker || xId.slice(0, 5) };
+        } else {
+          // Token/Token pair
+          token1 = { id: xId, name: xName, ticker: xTicker || xId.slice(0, 5) };
+          token2 = { id: yId, name: yName, ticker: yTicker || yId.slice(0, 5) };
+        }
+
+        poolMap.set(lpTokenId, { token1, token2, tvl });
+      }
+
+      console.log(`Cached ${poolMap.size} Spectrum pools for LP info lookup`);
+    } catch (error) {
+      console.error('Error fetching Spectrum pool cache:', error);
+    }
+
+    this.spectrumPoolCache = poolMap;
+    this.poolCacheFetchedAt = Date.now();
+    return poolMap;
+  }
+
+  /**
+   * Get LP token pair information from Spectrum pool data
    * Returns the two tokens that make up the LP pair
    */
   async getLpPairInfo(lpTokenId: string): Promise<LpPairInfo | null> {
     try {
-      // First get the token info to check if it's an LP token
+      // First check Spectrum pool cache for accurate pair info
+      const poolCache = await this.getSpectrumPoolCache();
+      const poolInfo = poolCache.get(lpTokenId);
+
+      if (poolInfo) {
+        return {
+          lpTokenId,
+          lpName: `${poolInfo.token1.ticker}/${poolInfo.token2.ticker} LP`,
+          token1: poolInfo.token1,
+          token2: poolInfo.token2,
+        };
+      }
+
+      // Fallback: Check if token looks like an LP token and get basic info
       const tokenInfo = await this.getTokenInfo(lpTokenId);
       if (!tokenInfo) return null;
 
       const tokenName = tokenInfo.name || '';
-
-      // Check if this looks like an LP token (contains "LP" or "_LP" or "Fund")
       const isLikelyLp = tokenName.toLowerCase().includes('lp') ||
                          tokenName.toLowerCase().includes('fund') ||
                          tokenName.includes('_');
 
       if (!isLikelyLp) return null;
 
-      // Get the issuance box (the box where the LP token was minted)
-      const boxResponse = await fetch(`${this.baseUrl}/boxes/${lpTokenId}`);
-      if (!boxResponse.ok) return null;
-
-      const box = await boxResponse.json();
-      const transactionId = box.transactionId;
-
-      if (!transactionId) return null;
-
-      // Fetch the full transaction to see all inputs and outputs
-      const txResponse = await fetch(`${this.baseUrl}/transactions/${transactionId}`);
-      if (!txResponse.ok) return null;
-
-      const transaction = await txResponse.json();
-
-      // Find unique tokens in the inputs (excluding the LP token itself and ERG)
+      // Parse name for pair info (e.g., "ERG_Rugged_LP" or "Rugged/ERG LP")
       const ERG_ID = '0000000000000000000000000000000000000000000000000000000000000000';
-      const inputTokens = new Map<string, { name: string; ticker: string }>();
+      const nameParts = tokenName.replace(/_LP$/i, '').replace(/ LP$/i, '').split(/[_\/]/);
 
-      for (const input of transaction.inputs || []) {
-        for (const asset of input.assets || []) {
-          if (asset.tokenId !== lpTokenId && asset.tokenId !== ERG_ID) {
-            inputTokens.set(asset.tokenId, {
-              name: asset.name || asset.tokenId.slice(0, 8) + '...',
-              ticker: asset.name?.split(' ')[0] || asset.tokenId.slice(0, 5),
-            });
-          }
+      if (nameParts.length >= 2) {
+        const ticker1 = nameParts[0].trim();
+        const ticker2 = nameParts[1].trim();
+
+        // Put ERG first if present
+        if (ticker2.toUpperCase() === 'ERG') {
+          return {
+            lpTokenId,
+            lpName: `ERG/${ticker1} LP`,
+            token1: { id: ERG_ID, name: 'ERG', ticker: 'ERG' },
+            token2: { id: '', name: ticker1, ticker: ticker1 },
+          };
         }
-      }
 
-      // Check if ERG is part of the pair by looking at input values
-      const totalInputErg = (transaction.inputs || []).reduce(
-        (sum: number, input: any) => sum + (input.value || 0),
-        0
-      );
-      const totalOutputErg = (transaction.outputs || []).reduce(
-        (sum: number, output: any) => sum + (output.value || 0),
-        0
-      );
-      // If significant ERG was deposited (not just miner fee), it's likely an ERG pair
-      const ergDifference = totalInputErg - totalOutputErg;
-      const hasErgInPair = ergDifference > 100_000_000; // More than 0.1 ERG
-
-      // Build the pair info
-      const tokenArray = Array.from(inputTokens.entries());
-
-      let token1 = { id: ERG_ID, name: 'ERG', ticker: 'ERG' };
-      let token2 = { id: '', name: 'Unknown', ticker: '???' };
-
-      if (hasErgInPair && tokenArray.length >= 1) {
-        // ERG + Token pair
-        token2 = {
-          id: tokenArray[0][0],
-          name: tokenArray[0][1].name,
-          ticker: tokenArray[0][1].ticker,
-        };
-      } else if (tokenArray.length >= 2) {
-        // Token + Token pair
-        token1 = {
-          id: tokenArray[0][0],
-          name: tokenArray[0][1].name,
-          ticker: tokenArray[0][1].ticker,
-        };
-        token2 = {
-          id: tokenArray[1][0],
-          name: tokenArray[1][1].name,
-          ticker: tokenArray[1][1].ticker,
-        };
-      } else if (tokenArray.length === 1) {
-        // Single token found, assume ERG pair
-        token2 = {
-          id: tokenArray[0][0],
-          name: tokenArray[0][1].name,
-          ticker: tokenArray[0][1].ticker,
+        return {
+          lpTokenId,
+          lpName: `${ticker1}/${ticker2} LP`,
+          token1: { id: ticker1.toUpperCase() === 'ERG' ? ERG_ID : '', name: ticker1, ticker: ticker1 },
+          token2: { id: '', name: ticker2, ticker: ticker2 },
         };
       }
 
-      return {
-        lpTokenId,
-        lpName: `${token1.ticker}/${token2.ticker} LP`,
-        token1,
-        token2,
-      };
+      return null;
     } catch (error) {
       console.error('Error fetching LP pair info:', error);
       return null;
     }
+  }
+
+  /**
+   * Get LP token value in ERG from Spectrum pool data
+   * Returns the share of TVL based on LP token amount
+   */
+  async getLpTokenValue(lpTokenId: string, lpAmount: number): Promise<number> {
+    try {
+      const poolCache = await this.getSpectrumPoolCache();
+      const poolInfo = poolCache.get(lpTokenId);
+
+      if (poolInfo && poolInfo.tvl > 0) {
+        // Get total LP supply from token info
+        const tokenInfo = await this.getTokenInfo(lpTokenId);
+        if (tokenInfo && tokenInfo.emissionAmount > 0) {
+          const decimals = tokenInfo.decimals || 0;
+          const totalSupply = tokenInfo.emissionAmount / Math.pow(10, decimals);
+          // Value = (user's LP amount / total LP supply) * TVL
+          const shareOfPool = lpAmount / totalSupply;
+          const valueInErg = shareOfPool * poolInfo.tvl;
+          console.log(`LP ${lpTokenId.slice(0,8)}: amount=${lpAmount}, totalSupply=${totalSupply}, tvl=${poolInfo.tvl}, value=${valueInErg}`);
+          return valueInErg;
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating LP token value:', error);
+    }
+    return 0;
   }
 
   /**
@@ -1169,25 +1226,41 @@ class ErgoApiService {
     const tokenIds = balance.tokens.map(t => t.tokenId);
     const priceMap = await this.getTokenPrices(tokenIds, address);
 
+    // Pre-fetch pool cache for LP token value calculation
+    const poolCache = await this.getSpectrumPoolCache();
+
     console.log('Price map size:', priceMap.size);
     console.log('Token IDs:', tokenIds.slice(0, 5));
 
-    const tokens = balance.tokens.map(t => {
+    // Process tokens, calculating LP values separately
+    const tokensWithValues = await Promise.all(balance.tokens.map(async t => {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
-      const priceInErg = priceMap.get(t.tokenId) || 0;
+      let valueInErg = 0;
+
+      // Check if this is an LP token
+      const poolInfo = poolCache.get(t.tokenId);
+      if (poolInfo) {
+        // This is an LP token - calculate value from pool TVL
+        valueInErg = await this.getLpTokenValue(t.tokenId, amount);
+        console.log(`LP token ${t.name || t.tokenId.slice(0,8)}: amount=${amount}, value=${valueInErg} ERG`);
+      } else {
+        // Regular token - use price from priceMap
+        const priceInErg = priceMap.get(t.tokenId) || 0;
+        valueInErg = amount * priceInErg;
+      }
 
       return {
         tokenId: t.tokenId,
         name: t.name || t.tokenId.slice(0, 8) + '...',
         amount,
         decimals: t.decimals,
-        valueInErg: amount * priceInErg,
+        valueInErg,
       };
-    });
+    }));
 
     return {
       ergBalance: balance.nanoErgs / NANOERG_TO_ERG,
-      tokens,
+      tokens: tokensWithValues,
     };
   }
 }
