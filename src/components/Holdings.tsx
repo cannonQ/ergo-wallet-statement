@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Holding } from '../types';
-import { ergoApi, LpPairInfo } from '../services/ergoApi';
+import { ergoApi, LpPairInfo, HistoricalPriceData } from '../services/ergoApi';
 import { getCategoryColor, formatNumber } from '../constants';
 
 interface HoldingsProps {
   holdings: Holding[];
   selectedMonth: Date;
+}
+
+interface HistoricalPriceInfo {
+  prices: Map<string, HistoricalPriceData>;
+  changes: Map<string, { startPrice: number; endPrice: number }>;
+  loading: boolean;
 }
 
 // Check if the selected month is the current month
@@ -22,6 +28,11 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedCategory, setSelectedCategory] = useState<string>('ERG'); // Default to ERG
   const [lpPairInfoMap, setLpPairInfoMap] = useState<Map<string, LpPairInfo>>(new Map());
+  const [historicalPrices, setHistoricalPrices] = useState<HistoricalPriceInfo>({
+    prices: new Map(),
+    changes: new Map(),
+    loading: false,
+  });
 
   // Determine if we can show current prices (only for current month)
   const showCurrentPrices = isCurrentMonth(selectedMonth);
@@ -49,6 +60,51 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
 
     fetchLpPairInfo();
   }, [holdings]);
+
+  // Fetch historical prices when viewing non-current months
+  useEffect(() => {
+    const fetchHistoricalPrices = async () => {
+      // Only fetch for non-current months
+      if (showCurrentPrices) {
+        setHistoricalPrices({ prices: new Map(), changes: new Map(), loading: false });
+        return;
+      }
+
+      // Get token IDs (excluding ERG which has no token ID)
+      const tokenIds = holdings
+        .filter(h => h.tokenId && h.tokenId.length === 64)
+        .map(h => h.tokenId);
+
+      if (tokenIds.length === 0) {
+        setHistoricalPrices({ prices: new Map(), changes: new Map(), loading: false });
+        return;
+      }
+
+      setHistoricalPrices(prev => ({ ...prev, loading: true }));
+
+      try {
+        const year = selectedMonth.getFullYear();
+        const month = selectedMonth.getMonth();
+
+        // Fetch both price data and change data in parallel
+        const [priceMap, changeMap] = await Promise.all([
+          ergoApi.getHistoricalPricesForMonth(tokenIds, year, month),
+          ergoApi.getHistoricalPriceChange(tokenIds, year, month),
+        ]);
+
+        setHistoricalPrices({
+          prices: priceMap,
+          changes: changeMap,
+          loading: false,
+        });
+      } catch (error) {
+        console.error('Error fetching historical prices:', error);
+        setHistoricalPrices({ prices: new Map(), changes: new Map(), loading: false });
+      }
+    };
+
+    fetchHistoricalPrices();
+  }, [holdings, selectedMonth, showCurrentPrices]);
 
   const categories = ['ERG', 'Stables', 'Tokens', 'Liquidity/Lending'];
 
@@ -260,23 +316,52 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
                   <td className="py-3 text-right text-white tabular-nums">
                     {showCurrentPrices ? (
                       `${formatNumber(holding.valueInErg)} ERG`
-                    ) : (
-                      // TODO: Historical pricing - uncomment when API is available
-                      // `${formatNumber(holding.valueInErg)} ERG`
-                      <span className="text-gray-500">-</span>
-                    )}
+                    ) : (() => {
+                      // Historical pricing - calculate value from historical price
+                      if (historicalPrices.loading) {
+                        return <span className="text-gray-500">...</span>;
+                      }
+                      // ERG token - value equals amount
+                      if (!holding.tokenId || holding.token === 'ERG') {
+                        return `${formatNumber(holding.endingBalance)} ERG`;
+                      }
+                      const priceData = historicalPrices.prices.get(holding.tokenId);
+                      if (priceData) {
+                        const historicalValue = holding.endingBalance * priceData.priceInErg;
+                        return `${formatNumber(historicalValue)} ERG`;
+                      }
+                      return <span className="text-gray-500">-</span>;
+                    })()}
                   </td>
-                  <td className={`py-3 text-right tabular-nums ${
-                    !showCurrentPrices ? 'text-gray-500' :
-                    holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
+                  <td className={`py-3 text-right tabular-nums ${(() => {
+                    if (!showCurrentPrices) {
+                      const changeData = holding.tokenId ? historicalPrices.changes.get(holding.tokenId) : null;
+                      if (changeData) {
+                        const changePercent = ((changeData.endPrice - changeData.startPrice) / changeData.startPrice) * 100;
+                        return changePercent >= 0 ? 'text-green-400' : 'text-red-400';
+                      }
+                      return 'text-gray-500';
+                    }
+                    return holding.change24h >= 0 ? 'text-green-400' : 'text-red-400';
+                  })()}`}>
                     {showCurrentPrices ? (
                       `${holding.change24h >= 0 ? '+' : ''}${holding.change24h.toFixed(2)}%`
-                    ) : (
-                      // TODO: Historical pricing - uncomment when API is available
-                      // `${holding.change24h >= 0 ? '+' : ''}${holding.change24h.toFixed(2)}%`
-                      '-'
-                    )}
+                    ) : (() => {
+                      // Historical pricing - calculate change from start/end of month prices
+                      if (historicalPrices.loading) {
+                        return '...';
+                      }
+                      // ERG token - no change % for native token
+                      if (!holding.tokenId || holding.token === 'ERG') {
+                        return '-';
+                      }
+                      const changeData = historicalPrices.changes.get(holding.tokenId);
+                      if (changeData) {
+                        const changePercent = ((changeData.endPrice - changeData.startPrice) / changeData.startPrice) * 100;
+                        return `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+                      }
+                      return '-';
+                    })()}
                   </td>
                 </tr>
               );

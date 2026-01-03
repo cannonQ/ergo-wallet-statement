@@ -106,6 +106,24 @@ export interface LpPairInfo {
   lockedErg?: number;
 }
 
+export interface HistoricalPriceStats {
+  token_info: {
+    token_id: string;
+    name: string;
+    description: string;
+    minted: number;
+    decimals: number;
+  };
+  max: { erg: number; usd: number };
+  min: { erg: number; usd: number };
+  average: { erg: number; usd: number };
+}
+
+export interface HistoricalPriceData {
+  priceInErg: number;
+  priceInUsd: number;
+}
+
 class ErgoApiService {
   private baseUrl: string;
   private currentHeight: number | null = null;
@@ -1128,6 +1146,147 @@ class ErgoApiService {
 
     console.log('No prices available from external APIs');
     return priceMap;
+  }
+
+  /**
+   * Get historical price for a token at a specific point in time
+   * Uses Crux Finance API /spectrum/price_stats endpoint
+   * @param tokenId The token ID to get historical price for
+   * @param timePoint Unix timestamp (in milliseconds) for the price point
+   * @param timeWindow Unix timestamp in milliseconds for the time window (typically same as timePoint for point-in-time)
+   * @returns Historical price data or null if not available
+   */
+  async getHistoricalTokenPrice(
+    tokenId: string,
+    timePoint: number,
+    timeWindow?: number
+  ): Promise<HistoricalPriceData | null> {
+    try {
+      const window = timeWindow || timePoint;
+      // Crux API expects milliseconds
+      const url = `${CRUX_API_URL}/spectrum/price_stats?token_id=${tokenId}&time_point=${timePoint}&time_window=${window}`;
+
+      const response = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.log(`Historical price not available for ${tokenId.slice(0, 8)}: ${response.status}`);
+        return null;
+      }
+
+      const data: HistoricalPriceStats = await response.json();
+
+      if (data.average && data.average.erg > 0) {
+        return {
+          priceInErg: data.average.erg,
+          priceInUsd: data.average.usd,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Error fetching historical price for ${tokenId.slice(0, 8)}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get historical prices for multiple tokens at end of a specific month
+   * @param tokenIds Array of token IDs to fetch prices for
+   * @param year The year of the month
+   * @param month The month (0-indexed, 0 = January)
+   * @returns Map of tokenId -> price data
+   */
+  async getHistoricalPricesForMonth(
+    tokenIds: string[],
+    year: number,
+    month: number
+  ): Promise<Map<string, HistoricalPriceData>> {
+    const priceMap = new Map<string, HistoricalPriceData>();
+
+    // Calculate end of month timestamp (last day, 23:59:59) - in milliseconds
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+    const timePointMs = endOfMonth.getTime();
+
+    // Calculate time window - from start of month to end of month (in milliseconds)
+    const startOfMonth = new Date(year, month, 1);
+    const timeWindowMs = startOfMonth.getTime();
+
+    console.log(`Fetching historical prices for ${tokenIds.length} tokens at ${endOfMonth.toISOString()}`);
+
+    // Fetch prices in parallel with a reasonable batch size
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < tokenIds.length; i += BATCH_SIZE) {
+      const batch = tokenIds.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(tokenId =>
+          this.getHistoricalTokenPrice(tokenId, timePointMs, timeWindowMs)
+            .then(data => ({ tokenId, data }))
+        )
+      );
+
+      for (const { tokenId, data } of results) {
+        if (data) {
+          priceMap.set(tokenId, data);
+        }
+      }
+    }
+
+    console.log(`Got historical prices for ${priceMap.size}/${tokenIds.length} tokens`);
+    return priceMap;
+  }
+
+  /**
+   * Get historical prices at start and end of month for change calculation
+   * @param tokenIds Array of token IDs
+   * @param year The year
+   * @param month The month (0-indexed)
+   * @returns Map of tokenId -> { startPrice, endPrice } for change % calculation
+   */
+  async getHistoricalPriceChange(
+    tokenIds: string[],
+    year: number,
+    month: number
+  ): Promise<Map<string, { startPrice: number; endPrice: number }>> {
+    const changeMap = new Map<string, { startPrice: number; endPrice: number }>();
+
+    // Start of month timestamp (in milliseconds)
+    const startOfMonth = new Date(year, month, 1, 0, 0, 0);
+    const startTimeMs = startOfMonth.getTime();
+
+    // End of month timestamp (in milliseconds)
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+    const endTimeMs = endOfMonth.getTime();
+
+    console.log(`Fetching price change: ${startOfMonth.toDateString()} to ${endOfMonth.toDateString()}`);
+
+    // Fetch start and end prices in parallel
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < tokenIds.length; i += BATCH_SIZE) {
+      const batch = tokenIds.slice(i, i + BATCH_SIZE);
+
+      const results = await Promise.all(
+        batch.map(async tokenId => {
+          const [startData, endData] = await Promise.all([
+            this.getHistoricalTokenPrice(tokenId, startTimeMs, startTimeMs),
+            this.getHistoricalTokenPrice(tokenId, endTimeMs, endTimeMs),
+          ]);
+          return { tokenId, startData, endData };
+        })
+      );
+
+      for (const { tokenId, startData, endData } of results) {
+        if (startData && endData && startData.priceInErg > 0) {
+          changeMap.set(tokenId, {
+            startPrice: startData.priceInErg,
+            endPrice: endData.priceInErg,
+          });
+        }
+      }
+    }
+
+    return changeMap;
   }
 
   /**
