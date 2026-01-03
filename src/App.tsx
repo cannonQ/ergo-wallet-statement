@@ -40,8 +40,8 @@ function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // Fetch wallet data
-  const fetchWalletData = useCallback(async (walletAddress: string, month: Date) => {
+  // Fetch wallet data - just balance for now (transaction history is too heavy)
+  const fetchWalletData = useCallback(async (walletAddress: string, _month: Date) => {
     setIsLoading(true);
     setError(null);
 
@@ -51,18 +51,16 @@ function App() {
         throw new Error('Invalid Ergo address format');
       }
 
-      // Fetch balance and statement data
-      const [ergBalance, statement] = await Promise.all([
-        ergoApi.getErgBalance(walletAddress),
-        ergoApi.getMonthlyStatement(walletAddress, month.getFullYear(), month.getMonth()),
-      ]);
+      // Fetch just the balance (skip heavy transaction loading for now)
+      const ergBalance = await ergoApi.getErgBalance(walletAddress);
 
       setBalance(ergBalance);
+      // For now, just show current balance without transaction history
       setStatementData({
-        beginningBalance: statement.beginningBalance,
-        additions: statement.additions,
-        reductions: statement.reductions,
-        endingBalance: statement.endingBalance,
+        beginningBalance: ergBalance,
+        additions: 0,
+        reductions: 0,
+        endingBalance: ergBalance,
       });
       setIsOnline(true);
 
@@ -72,7 +70,7 @@ function App() {
         {
           id: Date.now().toString(),
           type: 'info',
-          message: `Loaded wallet data: ${ergBalance.toFixed(4)} ERG`,
+          message: `Loaded wallet: ${ergBalance.toFixed(4)} ERG`,
           expiresAt: new Date(Date.now() + 5000),
         },
       ]);
