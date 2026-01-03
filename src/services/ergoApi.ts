@@ -719,7 +719,8 @@ class ErgoApiService {
 
   /**
    * Decode a hex-encoded register value to string
-   * Ergo registers are encoded as: 0e + length (2 hex chars) + hex string
+   * Ergo registers are encoded as: 0e + VLQ length + bytes
+   * VLQ (Variable Length Quantity): if high bit set, continue reading
    */
   decodeRegisterToString(hexValue: string): string | null {
     try {
@@ -727,13 +728,31 @@ class ErgoApiService {
       if (!hexValue.startsWith('0e')) {
         return null;
       }
-      // Skip prefix (0e) and length bytes, decode the rest as UTF-8
-      const hexContent = hexValue.slice(4); // Skip '0e' + 2 length chars
+
+      // Parse VLQ length starting at position 2 (after '0e')
+      let pos = 2;
+      let length = 0;
+      let shift = 0;
+
+      while (pos < hexValue.length) {
+        const byte = parseInt(hexValue.slice(pos, pos + 2), 16);
+        pos += 2;
+        length |= (byte & 0x7f) << shift;
+        if ((byte & 0x80) === 0) break; // High bit not set = last byte
+        shift += 7;
+      }
+
+      // Now extract 'length' bytes from position 'pos'
+      const hexContent = hexValue.slice(pos, pos + length * 2);
       const bytes = new Uint8Array(
         hexContent.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
       );
-      return new TextDecoder().decode(bytes);
-    } catch {
+
+      const decoded = new TextDecoder().decode(bytes);
+      console.log(`Decoded R9 for token: "${decoded}" (length: ${length})`);
+      return decoded;
+    } catch (err) {
+      console.error('Error decoding register:', err);
       return null;
     }
   }
@@ -744,9 +763,11 @@ class ErgoApiService {
   async getTokenArtworkUrl(tokenId: string): Promise<string | null> {
     const box = await this.getTokenIssuanceBox(tokenId);
     if (!box?.additionalRegisters?.R9) {
+      console.log(`No R9 register for token ${tokenId.slice(0, 8)}`);
       return null;
     }
 
+    console.log(`R9 raw value for ${tokenId.slice(0, 8)}: ${box.additionalRegisters.R9.slice(0, 50)}...`);
     const artworkUrl = this.decodeRegisterToString(box.additionalRegisters.R9);
     return artworkUrl;
   }
