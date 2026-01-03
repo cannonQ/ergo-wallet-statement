@@ -1150,7 +1150,7 @@ class ErgoApiService {
 
   /**
    * Get historical price for a token at a specific point in time
-   * Uses Crux Finance API /spectrum/price_stats endpoint
+   * Uses local API route that proxies to Crux Finance API (avoids CORS issues)
    * @param tokenId The token ID to get historical price for
    * @param timePoint Unix timestamp (in milliseconds) for the price point
    * @param timeWindow Unix timestamp in milliseconds for the time window (typically same as timePoint for point-in-time)
@@ -1163,8 +1163,8 @@ class ErgoApiService {
   ): Promise<HistoricalPriceData | null> {
     try {
       const window = timeWindow || timePoint;
-      // Crux API expects milliseconds
-      const url = `${CRUX_API_URL}/spectrum/price_stats?token_id=${tokenId}&time_point=${timePoint}&time_window=${window}`;
+      // Use local API route to avoid CORS issues
+      const url = `/api/historical-price?token_id=${tokenId}&time_point=${timePoint}&time_window=${window}`;
 
       const response = await fetch(url, {
         headers: { 'Accept': 'application/json' },
