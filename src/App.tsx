@@ -95,6 +95,8 @@ function App() {
   const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date) => {
     setLoadingTransactions(true);
     setHasMoreTransactions(false);
+    // Clear cache when switching months to ensure fresh data
+    ergoApi.clearMonthTxCache();
     try {
       // Fetch transactions and token movements in parallel
       const [txResult, movements] = await Promise.all([

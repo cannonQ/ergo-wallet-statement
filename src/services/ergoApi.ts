@@ -244,9 +244,25 @@ class ErgoApiService {
     return response.json();
   }
 
+  // Cache for month transactions to avoid re-fetching
+  private monthTxCache: {
+    address: string;
+    year: number;
+    month: number;
+    transactions: Array<{
+      id: string;
+      timestamp: Date;
+      type: 'incoming' | 'outgoing';
+      amount: number;
+      status: 'confirmed';
+    }>;
+    fetchedAt: number;
+  } | null = null;
+
   /**
-   * Get transactions for a specific month using date-range API filtering
-   * Supports pagination with offset for "Load More" functionality
+   * Get transactions for a specific month using client-side filtering
+   * The Ergo API's fromTs/toTs params don't filter reliably, so we fetch more and filter ourselves
+   * Caches results for the month to support efficient pagination
    */
   async getMonthTransactions(
     address: string,
@@ -265,50 +281,88 @@ class ErgoApiService {
     total: number;
     hasMore: boolean;
   }> {
-    // Calculate month start and end timestamps
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-    const fromTimestamp = startDate.getTime();
-    const toTimestamp = endDate.getTime();
+    // Check cache - use cached data if same month and less than 2 minutes old
+    const cacheValid = this.monthTxCache &&
+      this.monthTxCache.address === address &&
+      this.monthTxCache.year === year &&
+      this.monthTxCache.month === month &&
+      Date.now() - this.monthTxCache.fetchedAt < 120000;
 
-    // Use API date-range filtering (more efficient than fetching all and filtering client-side)
-    const response = await this.getAddressTransactions(address, {
-      limit: limit + 1, // Fetch one extra to check if there are more
-      offset: offset,
-      fromTimestamp,
-      toTimestamp,
-    });
+    let allMonthTransactions: Array<{
+      id: string;
+      timestamp: Date;
+      type: 'incoming' | 'outgoing';
+      amount: number;
+      status: 'confirmed';
+    }>;
 
-    // Check if there are more transactions beyond this page
-    const hasMore = response.items.length > limit;
-    const itemsToProcess = hasMore ? response.items.slice(0, limit) : response.items;
+    if (cacheValid && this.monthTxCache) {
+      allMonthTransactions = this.monthTxCache.transactions;
+    } else {
+      // Calculate month start and end timestamps
+      const startDate = new Date(year, month, 1);
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      const fromTimestamp = startDate.getTime();
+      const toTimestamp = endDate.getTime();
 
-    const transactions = itemsToProcess.map(tx => {
-      // Calculate net ERG change for this address
-      const inputValue = tx.inputs
-        .filter(input => input.address === address)
-        .reduce((sum, input) => sum + input.value, 0);
+      // Fetch enough transactions to cover the month (500 should be enough for most wallets)
+      const response = await this.getAddressTransactions(address, {
+        limit: 500,
+        offset: 0,
+      });
 
-      const outputValue = tx.outputs
-        .filter(output => output.address === address)
-        .reduce((sum, output) => sum + output.value, 0);
+      // Filter transactions by timestamp (client-side filtering - API fromTs/toTs unreliable)
+      const filteredTxs = response.items.filter(tx => {
+        return tx.timestamp >= fromTimestamp && tx.timestamp <= toTimestamp;
+      });
 
-      const netChange = outputValue - inputValue;
+      allMonthTransactions = filteredTxs.map(tx => {
+        // Calculate net ERG change for this address
+        const inputValue = tx.inputs
+          .filter(input => input.address === address)
+          .reduce((sum, input) => sum + input.value, 0);
 
-      return {
-        id: tx.id,
-        timestamp: new Date(tx.timestamp),
-        type: (netChange >= 0 ? 'incoming' : 'outgoing') as 'incoming' | 'outgoing',
-        amount: Math.abs(netChange) / NANOERG_TO_ERG,
-        status: 'confirmed' as const,
+        const outputValue = tx.outputs
+          .filter(output => output.address === address)
+          .reduce((sum, output) => sum + output.value, 0);
+
+        const netChange = outputValue - inputValue;
+
+        return {
+          id: tx.id,
+          timestamp: new Date(tx.timestamp),
+          type: (netChange >= 0 ? 'incoming' : 'outgoing') as 'incoming' | 'outgoing',
+          amount: Math.abs(netChange) / NANOERG_TO_ERG,
+          status: 'confirmed' as const,
+        };
+      });
+
+      // Cache the results
+      this.monthTxCache = {
+        address,
+        year,
+        month,
+        transactions: allMonthTransactions,
+        fetchedAt: Date.now(),
       };
-    });
+    }
+
+    // Apply pagination to cached results
+    const paginatedTxs = allMonthTransactions.slice(offset, offset + limit);
+    const hasMore = allMonthTransactions.length > offset + limit;
 
     return {
-      transactions,
-      total: response.total, // API provides total count
+      transactions: paginatedTxs,
+      total: allMonthTransactions.length,
       hasMore,
     };
+  }
+
+  /**
+   * Clear the month transaction cache (call when month changes)
+   */
+  clearMonthTxCache(): void {
+    this.monthTxCache = null;
   }
 
   /**
