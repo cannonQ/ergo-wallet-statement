@@ -350,7 +350,7 @@ function App() {
           </div>
 
           {/* Summary, Top Hodls, and Demurrage row */}
-          <div className="grid grid-cols-1 md:grid-cols-[50%_25%_25%] gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4 mb-6">
             <WalletSummary holdings={holdings} />
             <TopHodls holdings={holdings} />
             <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
