@@ -753,11 +753,12 @@ class ErgoApiService {
 
   /**
    * Convert IPFS URL to gateway URL
+   * Using ipfs.io gateway as it's the most stable
    */
   ipfsToGatewayUrl(url: string): string {
     if (url.startsWith('ipfs://')) {
       const hash = url.replace('ipfs://', '');
-      return `https://cloudflare-ipfs.com/ipfs/${hash}`;
+      return `https://ipfs.io/ipfs/${hash}`;
     }
     return url;
   }
@@ -837,7 +838,8 @@ class ErgoApiService {
       });
 
       if (!response.ok) {
-        console.error('Crux positions API error:', response.status);
+        // 422 is common when API doesn't have data for this address - fall back to other price sources
+        console.log('Crux positions API unavailable, using fallback price sources');
         return priceMap;
       }
 
