@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Holding } from '../types';
+import { ergoApi, LpPairInfo } from '../services/ergoApi';
 
 interface HoldingsProps {
   holdings: Holding[];
@@ -11,6 +12,31 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
   const [sortField, setSortField] = useState<keyof Holding>('valueInErg');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedCategory, setSelectedCategory] = useState<string>('ERG');
+  const [lpPairInfoMap, setLpPairInfoMap] = useState<Map<string, LpPairInfo>>(new Map());
+
+  // Fetch LP pair info for LP/Lending tokens
+  useEffect(() => {
+    const fetchLpPairInfo = async () => {
+      const lpTokens = holdings.filter(h =>
+        h.category === 'Liquidity/Lending' &&
+        h.tokenId &&
+        !lpPairInfoMap.has(h.tokenId)
+      );
+
+      for (const token of lpTokens) {
+        try {
+          const pairInfo = await ergoApi.getLpPairInfo(token.tokenId);
+          if (pairInfo) {
+            setLpPairInfoMap(prev => new Map(prev).set(token.tokenId, pairInfo));
+          }
+        } catch (error) {
+          console.error(`Error fetching LP pair info for ${token.tokenId}:`, error);
+        }
+      }
+    };
+
+    fetchLpPairInfo();
+  }, [holdings]);
 
   const categories = ['ERG', 'Stables', 'Tokens', 'Liquidity/Lending'];
 
@@ -123,33 +149,86 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
           </thead>
           <tbody>
             {filteredHoldings.map((holding) => {
-              const displayName = holding.token.length > 20
-                ? holding.token.slice(0, 20) + '...'
-                : holding.token;
+              const lpInfo = holding.tokenId ? lpPairInfoMap.get(holding.tokenId) : null;
+
+              // For LP tokens, show the pair name; otherwise show the token name
+              const displayName = lpInfo
+                ? lpInfo.lpName
+                : (holding.token.length > 20
+                    ? holding.token.slice(0, 20) + '...'
+                    : holding.token);
+
               const shortTokenId = holding.tokenId ? holding.tokenId.slice(0, 5) : '';
+              const ERG_ID = '0000000000000000000000000000000000000000000000000000000000000000';
 
               return (
                 <tr key={holding.tokenId || holding.token} className="border-b border-gray-800 hover:bg-gray-800/50">
                   <td className="py-3 text-white">
-                    <div className="flex items-center gap-2">
-                      <span title={holding.token} className="font-medium">{displayName}</span>
-                      {shortTokenId && (
-                        <a
-                          href={`https://ergexplorer.com/token#${holding.tokenId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-500 hover:text-blue-400 text-xs"
-                          title={holding.tokenId}
-                        >
-                          ({shortTokenId}...)
-                        </a>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {lpInfo ? (
+                        // LP token: show pair name with links to each token
+                        <>
+                          <span className="font-medium">
+                            {lpInfo.token1.id !== ERG_ID ? (
+                              <a
+                                href={`https://ergexplorer.com/token#${lpInfo.token1.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-400"
+                              >
+                                {lpInfo.token1.ticker}
+                              </a>
+                            ) : (
+                              <span>{lpInfo.token1.ticker}</span>
+                            )}
+                            <span className="text-gray-400">/</span>
+                            {lpInfo.token2.id && lpInfo.token2.id !== ERG_ID ? (
+                              <a
+                                href={`https://ergexplorer.com/token#${lpInfo.token2.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-400"
+                              >
+                                {lpInfo.token2.ticker}
+                              </a>
+                            ) : (
+                              <span>{lpInfo.token2.ticker}</span>
+                            )}
+                            <span className="text-gray-400 ml-1">LP</span>
+                          </span>
+                          <a
+                            href={`https://ergexplorer.com/token#${holding.tokenId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gray-500 hover:text-blue-400 text-xs"
+                            title={holding.tokenId}
+                          >
+                            ({shortTokenId}...)
+                          </a>
+                        </>
+                      ) : (
+                        // Regular token
+                        <>
+                          <span title={holding.token} className="font-medium">{displayName}</span>
+                          {shortTokenId && (
+                            <a
+                              href={`https://ergexplorer.com/token#${holding.tokenId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-500 hover:text-blue-400 text-xs"
+                              title={holding.tokenId}
+                            >
+                              ({shortTokenId}...)
+                            </a>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
-                  <td className="py-3 text-right text-white tabular-nums">{holding.amount.toFixed(1)}</td>
-                  <td className="py-3 text-right text-green-400 tabular-nums">+{holding.additions.toFixed(1)}</td>
-                  <td className="py-3 text-right text-red-400 tabular-nums">-{holding.reductions.toFixed(1)}</td>
-                  <td className="py-3 text-right text-white tabular-nums">{holding.amount.toFixed(1)}</td>
+                  <td className="py-3 text-right text-white tabular-nums">{holding.beginningBalance.toFixed(2)}</td>
+                  <td className="py-3 text-right text-green-400 tabular-nums">+{holding.additions.toFixed(2)}</td>
+                  <td className="py-3 text-right text-red-400 tabular-nums">-{holding.reductions.toFixed(2)}</td>
+                  <td className="py-3 text-right text-white tabular-nums">{holding.endingBalance.toFixed(2)}</td>
                   <td className="py-3 text-right text-white tabular-nums">{holding.valueInErg.toFixed(2)} ERG</td>
                   <td className={`py-3 text-right tabular-nums ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%

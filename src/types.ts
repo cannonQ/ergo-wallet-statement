@@ -24,6 +24,11 @@ export interface Holding {
   additions: number;
   reductions: number;
   endingBalance: number;
+  lpPairInfo?: {
+    lpName: string;
+    token1: { id: string; ticker: string };
+    token2: { id: string; ticker: string };
+  };
 }
 
 export interface Alert {

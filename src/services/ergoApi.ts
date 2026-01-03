@@ -97,6 +97,13 @@ export interface IssuanceBox {
   };
 }
 
+export interface LpPairInfo {
+  lpTokenId: string;
+  lpName: string;
+  token1: { id: string; name: string; ticker: string };
+  token2: { id: string; name: string; ticker: string };
+}
+
 class ErgoApiService {
   private baseUrl: string;
   private currentHeight: number | null = null;
@@ -381,6 +388,114 @@ class ErgoApiService {
       if (!response.ok) return null;
       return response.json();
     } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get LP token pair information by fetching the minting transaction
+   * Returns the two tokens that make up the LP pair
+   */
+  async getLpPairInfo(lpTokenId: string): Promise<LpPairInfo | null> {
+    try {
+      // First get the token info to check if it's an LP token
+      const tokenInfo = await this.getTokenInfo(lpTokenId);
+      if (!tokenInfo) return null;
+
+      const tokenName = tokenInfo.name || '';
+
+      // Check if this looks like an LP token (contains "LP" or "_LP" or "Fund")
+      const isLikelyLp = tokenName.toLowerCase().includes('lp') ||
+                         tokenName.toLowerCase().includes('fund') ||
+                         tokenName.includes('_');
+
+      if (!isLikelyLp) return null;
+
+      // Get the issuance box (the box where the LP token was minted)
+      const boxResponse = await fetch(`${this.baseUrl}/boxes/${lpTokenId}`);
+      if (!boxResponse.ok) return null;
+
+      const box = await boxResponse.json();
+      const transactionId = box.transactionId;
+
+      if (!transactionId) return null;
+
+      // Fetch the full transaction to see all inputs and outputs
+      const txResponse = await fetch(`${this.baseUrl}/transactions/${transactionId}`);
+      if (!txResponse.ok) return null;
+
+      const transaction = await txResponse.json();
+
+      // Find unique tokens in the inputs (excluding the LP token itself and ERG)
+      const ERG_ID = '0000000000000000000000000000000000000000000000000000000000000000';
+      const inputTokens = new Map<string, { name: string; ticker: string }>();
+
+      for (const input of transaction.inputs || []) {
+        for (const asset of input.assets || []) {
+          if (asset.tokenId !== lpTokenId && asset.tokenId !== ERG_ID) {
+            inputTokens.set(asset.tokenId, {
+              name: asset.name || asset.tokenId.slice(0, 8) + '...',
+              ticker: asset.name?.split(' ')[0] || asset.tokenId.slice(0, 5),
+            });
+          }
+        }
+      }
+
+      // Check if ERG is part of the pair by looking at input values
+      const totalInputErg = (transaction.inputs || []).reduce(
+        (sum: number, input: any) => sum + (input.value || 0),
+        0
+      );
+      const totalOutputErg = (transaction.outputs || []).reduce(
+        (sum: number, output: any) => sum + (output.value || 0),
+        0
+      );
+      // If significant ERG was deposited (not just miner fee), it's likely an ERG pair
+      const ergDifference = totalInputErg - totalOutputErg;
+      const hasErgInPair = ergDifference > 100_000_000; // More than 0.1 ERG
+
+      // Build the pair info
+      const tokenArray = Array.from(inputTokens.entries());
+
+      let token1 = { id: ERG_ID, name: 'ERG', ticker: 'ERG' };
+      let token2 = { id: '', name: 'Unknown', ticker: '???' };
+
+      if (hasErgInPair && tokenArray.length >= 1) {
+        // ERG + Token pair
+        token2 = {
+          id: tokenArray[0][0],
+          name: tokenArray[0][1].name,
+          ticker: tokenArray[0][1].ticker,
+        };
+      } else if (tokenArray.length >= 2) {
+        // Token + Token pair
+        token1 = {
+          id: tokenArray[0][0],
+          name: tokenArray[0][1].name,
+          ticker: tokenArray[0][1].ticker,
+        };
+        token2 = {
+          id: tokenArray[1][0],
+          name: tokenArray[1][1].name,
+          ticker: tokenArray[1][1].ticker,
+        };
+      } else if (tokenArray.length === 1) {
+        // Single token found, assume ERG pair
+        token2 = {
+          id: tokenArray[0][0],
+          name: tokenArray[0][1].name,
+          ticker: tokenArray[0][1].ticker,
+        };
+      }
+
+      return {
+        lpTokenId,
+        lpName: `${token1.ticker}/${token2.ticker} LP`,
+        token1,
+        token2,
+      };
+    } catch (error) {
+      console.error('Error fetching LP pair info:', error);
       return null;
     }
   }
@@ -847,6 +962,119 @@ class ErgoApiService {
         }
       }
     }
+  }
+
+  /**
+   * Calculate token movements (additions and reductions) for a given month
+   * Returns per-token In/Out values based on transaction history
+   */
+  async getTokenMovements(
+    address: string,
+    year: number,
+    month: number // 0-indexed (0 = January)
+  ): Promise<Map<string, { additions: number; reductions: number }>> {
+    const movements = new Map<string, { additions: number; reductions: number }>();
+
+    // Calculate month start and end timestamps
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    const fromTimestamp = startDate.getTime();
+    const toTimestamp = endDate.getTime();
+
+    try {
+      // Fetch transactions for the month
+      const response = await this.getAddressTransactions(address, {
+        limit: 200,
+        offset: 0,
+      });
+
+      // Filter to transactions within the month
+      const monthTxs = response.items.filter(tx => {
+        return tx.timestamp >= fromTimestamp && tx.timestamp <= toTimestamp;
+      });
+
+      // Process each transaction
+      for (const tx of monthTxs) {
+        // Calculate token inputs (what we sent FROM this address)
+        const tokenInputs = new Map<string, number>();
+        for (const input of tx.inputs) {
+          if (input.address === address) {
+            for (const asset of input.assets || []) {
+              const current = tokenInputs.get(asset.tokenId) || 0;
+              tokenInputs.set(asset.tokenId, current + asset.amount);
+            }
+          }
+        }
+
+        // Calculate token outputs (what we received TO this address)
+        const tokenOutputs = new Map<string, number>();
+        for (const output of tx.outputs) {
+          if (output.address === address) {
+            for (const asset of output.assets || []) {
+              const current = tokenOutputs.get(asset.tokenId) || 0;
+              tokenOutputs.set(asset.tokenId, current + asset.amount);
+            }
+          }
+        }
+
+        // Calculate net changes per token
+        const allTokenIds = new Set([...tokenInputs.keys(), ...tokenOutputs.keys()]);
+
+        for (const tokenId of allTokenIds) {
+          const inputAmount = tokenInputs.get(tokenId) || 0;
+          const outputAmount = tokenOutputs.get(tokenId) || 0;
+          const netChange = outputAmount - inputAmount;
+
+          // Get or create movement record
+          let movement = movements.get(tokenId);
+          if (!movement) {
+            movement = { additions: 0, reductions: 0 };
+            movements.set(tokenId, movement);
+          }
+
+          // Positive net = addition (received tokens)
+          // Negative net = reduction (sent tokens)
+          if (netChange > 0) {
+            movement.additions += netChange;
+          } else if (netChange < 0) {
+            movement.reductions += Math.abs(netChange);
+          }
+        }
+      }
+
+      // Also track ERG movements (pseudo token ID for ERG)
+      const ERG_PSEUDO_ID = '__ERG__';
+      let ergAdditions = 0;
+      let ergReductions = 0;
+
+      for (const tx of monthTxs) {
+        const inputValue = tx.inputs
+          .filter(input => input.address === address)
+          .reduce((sum, input) => sum + input.value, 0);
+
+        const outputValue = tx.outputs
+          .filter(output => output.address === address)
+          .reduce((sum, output) => sum + output.value, 0);
+
+        const netErg = outputValue - inputValue;
+        if (netErg > 0) {
+          ergAdditions += netErg;
+        } else if (netErg < 0) {
+          ergReductions += Math.abs(netErg);
+        }
+      }
+
+      // Store ERG movements (in nanoERG for now, will convert when using)
+      movements.set(ERG_PSEUDO_ID, {
+        additions: ergAdditions / NANOERG_TO_ERG,
+        reductions: ergReductions / NANOERG_TO_ERG,
+      });
+
+    } catch (error) {
+      console.error('Error calculating token movements:', error);
+    }
+
+    return movements;
   }
 
   /**
