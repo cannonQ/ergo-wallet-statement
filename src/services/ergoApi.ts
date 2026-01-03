@@ -975,9 +975,9 @@ class ErgoApiService {
     const allNFTTokens = [...classicNFTs, ...multiCopyNFTs];
     console.log(`NFT Gallery: ${classicNFTs.length} classic NFTs + ${multiCopyNFTs.length} multi-copy NFTs = ${allNFTTokens.length} total`);
 
-    // Fetch info for each NFT (limit to 20 for performance)
+    // Fetch info for each NFT (process all, no limit)
     const nfts = await Promise.all(
-      allNFTTokens.slice(0, 20).map(async (token) => {
+      allNFTTokens.map(async (token) => {
         const [info, artworkUrl, eip4AssetType] = await Promise.all([
           this.getTokenInfo(token.tokenId),
           this.getTokenArtworkUrl(token.tokenId),
@@ -1021,7 +1021,16 @@ class ErgoApiService {
       })
     );
 
-    return nfts.filter((nft): nft is NonNullable<typeof nft> => nft !== null);
+    const validNfts = nfts.filter((nft): nft is NonNullable<typeof nft> => nft !== null);
+
+    // Log type distribution
+    const typeCounts = validNfts.reduce((acc, nft) => {
+      acc[nft.type] = (acc[nft.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('NFT type distribution:', typeCounts);
+
+    return validNfts;
   }
 
   /**
