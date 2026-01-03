@@ -221,10 +221,12 @@ class ErgoApiService {
   }
 
   /**
-   * Get recent transactions (limited to avoid heavy loading)
+   * Get transactions for a specific month (limited to avoid heavy loading)
    */
-  async getRecentTransactions(
+  async getMonthTransactions(
     address: string,
+    year: number,
+    month: number, // 0-indexed (0 = January)
     limit: number = 20
   ): Promise<{
     transactions: Array<{
@@ -236,7 +238,19 @@ class ErgoApiService {
     }>;
     total: number;
   }> {
-    const response = await this.getAddressTransactions(address, { limit, offset: 0 });
+    // Calculate month start and end timestamps
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    const fromTimestamp = startDate.getTime();
+    const toTimestamp = endDate.getTime();
+
+    const response = await this.getAddressTransactions(address, {
+      limit,
+      offset: 0,
+      fromTimestamp,
+      toTimestamp,
+    });
 
     const transactions = response.items.map(tx => {
       // Calculate net ERG change for this address

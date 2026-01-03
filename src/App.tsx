@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Chart } from './components/Chart';
 import { PieChart } from './components/PieChart';
@@ -78,8 +78,29 @@ function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  // Fetch transactions for selected month
+  const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date) => {
+    setLoadingTransactions(true);
+    try {
+      const result = await ergoApi.getMonthTransactions(
+        walletAddress,
+        month.getFullYear(),
+        month.getMonth(),
+        20
+      );
+      setTransactions(result.transactions);
+      setTotalTransactions(result.total);
+    } catch (err) {
+      console.error('Failed to load transactions:', err);
+      setTransactions([]);
+      setTotalTransactions(0);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, []);
+
   // Fetch all wallet data
-  const fetchWalletData = useCallback(async (walletAddress: string) => {
+  const fetchWalletData = useCallback(async (walletAddress: string, month: Date) => {
     setIsLoading(true);
     setError(null);
     setBalance(null);
@@ -109,15 +130,8 @@ function App() {
         },
       ]);
 
-      // Fetch transactions in background
-      setLoadingTransactions(true);
-      ergoApi.getRecentTransactions(walletAddress, 20)
-        .then(result => {
-          setTransactions(result.transactions);
-          setTotalTransactions(result.total);
-        })
-        .catch(err => console.error('Failed to load transactions:', err))
-        .finally(() => setLoadingTransactions(false));
+      // Fetch transactions for selected month in background
+      fetchTransactionsForMonth(walletAddress, month);
 
       // Fetch demurrage boxes in background
       setLoadingDemurrage(true);
@@ -150,16 +164,20 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchTransactionsForMonth]);
 
   const handleAddressSubmit = useCallback((walletAddress: string) => {
     setAddress(walletAddress);
-    fetchWalletData(walletAddress);
-  }, [fetchWalletData]);
+    fetchWalletData(walletAddress, selectedMonth);
+  }, [fetchWalletData, selectedMonth]);
 
+  // Re-fetch transactions when month changes
   const handleMonthChange = useCallback((month: Date) => {
     setSelectedMonth(month);
-  }, []);
+    if (address) {
+      fetchTransactionsForMonth(address, month);
+    }
+  }, [address, fetchTransactionsForMonth]);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
@@ -170,12 +188,13 @@ function App() {
   };
 
   // Convert tokens to Holdings format for the original components
+  // Note: valueInErg shows ERG equivalent - currently only ERG has value since we don't have token prices
   const holdings: Holding[] = balance !== null ? [
     // ERG holding
     {
       token: 'ERG',
       amount: balance,
-      valueInErg: balance,
+      valueInErg: balance, // ERG value = ERG amount
       change24h: 0,
       category: 'ERG' as const,
       beginningBalance: balance,
@@ -183,11 +202,11 @@ function App() {
       reductions: 0,
       endingBalance: balance,
     },
-    // Token holdings
+    // Token holdings - valueInErg is 0 without price API
     ...tokens.map(token => ({
       token: token.name,
       amount: token.amount,
-      valueInErg: 0, // Would need price API
+      valueInErg: 0, // Would need price API for ERG equivalent
       change24h: 0,
       category: categorizeToken(token.name),
       beginningBalance: token.amount,
@@ -203,7 +222,7 @@ function App() {
     values: balance !== null ? [balance] : [],
   };
 
-  // Pie chart data - distribution by category
+  // Pie chart data - distribution by category (ERG value)
   const pieData = {
     labels: ['ERG', 'Stables', 'Tokens', 'LP Tokens'],
     values: [
