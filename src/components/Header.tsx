@@ -56,9 +56,9 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {address && (
-          <div className="flex items-center space-x-4">
-            <MonthPicker selectedMonth={selectedMonth} onChange={onMonthChange} />
+        <div className="flex items-center space-x-4">
+          <MonthPicker selectedMonth={selectedMonth} onChange={onMonthChange} />
+          {address && (
             <div className="bg-gray-800 rounded-lg p-2 flex items-center">
               <span className="text-gray-400 text-sm mr-2">Address:</span>
               <span className="text-white font-mono">{`${address.slice(0, 8)}...${address.slice(-6)}`}</span>
@@ -70,8 +70,8 @@ export const Header: React.FC<HeaderProps> = ({
                 {copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="mt-4">

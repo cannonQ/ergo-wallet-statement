@@ -102,6 +102,8 @@ export interface LpPairInfo {
   lpName: string;
   token1: { id: string; name: string; ticker: string };
   token2: { id: string; name: string; ticker: string };
+  lpTotalSupply?: number;
+  lockedErg?: number;
 }
 
 class ErgoApiService {
@@ -393,20 +395,41 @@ class ErgoApiService {
   }
 
   // Cache for Spectrum pool data (LP token ID -> pool info)
-  private spectrumPoolCache: Map<string, { token1: { id: string; name: string; ticker: string }; token2: { id: string; name: string; ticker: string }; tvl: number }> | null = null;
+  private spectrumPoolCache: Map<string, {
+    token1: { id: string; name: string; ticker: string };
+    token2: { id: string; name: string; ticker: string };
+    tvl: number;
+    lockedErg: number;
+    lpTotalSupply: number;
+    lpDecimals: number;
+  }> | null = null;
   private poolCacheFetchedAt: number = 0;
 
   /**
    * Fetch and cache Spectrum pool data
    * Maps LP token ID to pool pair information
    */
-  private async getSpectrumPoolCache(): Promise<Map<string, { token1: { id: string; name: string; ticker: string }; token2: { id: string; name: string; ticker: string }; tvl: number }>> {
+  private async getSpectrumPoolCache(): Promise<Map<string, {
+    token1: { id: string; name: string; ticker: string };
+    token2: { id: string; name: string; ticker: string };
+    tvl: number;
+    lockedErg: number;
+    lpTotalSupply: number;
+    lpDecimals: number;
+  }>> {
     // Cache for 5 minutes
     if (this.spectrumPoolCache && Date.now() - this.poolCacheFetchedAt < 300000) {
       return this.spectrumPoolCache;
     }
 
-    const poolMap = new Map<string, { token1: { id: string; name: string; ticker: string }; token2: { id: string; name: string; ticker: string }; tvl: number }>();
+    const poolMap = new Map<string, {
+      token1: { id: string; name: string; ticker: string };
+      token2: { id: string; name: string; ticker: string };
+      tvl: number;
+      lockedErg: number;
+      lpTotalSupply: number;
+      lpDecimals: number;
+    }>();
     const ERG_ID = '0000000000000000000000000000000000000000000000000000000000000000';
 
     try {
@@ -430,14 +453,28 @@ class ErgoApiService {
         const xId = pool.lockedX?.id || pool.x?.id || '';
         const xTicker = pool.lockedX?.ticker || pool.x?.ticker || '';
         const xName = pool.lockedX?.name || pool.x?.name || xTicker;
+        const xAmount = pool.lockedX?.amount || pool.x?.amount || 0;
 
         // Get Y token (second in pair)
         const yId = pool.lockedY?.id || pool.y?.id || '';
         const yTicker = pool.lockedY?.ticker || pool.y?.ticker || '';
         const yName = pool.lockedY?.name || pool.y?.name || yTicker;
+        const yAmount = pool.lockedY?.amount || pool.y?.amount || 0;
+
+        // Get LP token info
+        const lpAmount = pool.lp?.amount || pool.lpToken?.amount || 0;
+        const lpDecimals = pool.lp?.decimals ?? pool.lpToken?.decimals ?? 0;
 
         // Get TVL for value calculation
         const tvl = pool.tvl || pool.liquidity || 0;
+
+        // Calculate locked ERG (need to identify which side is ERG)
+        let lockedErg = 0;
+        if (xId === ERG_ID || xTicker === 'ERG') {
+          lockedErg = xAmount / 1e9; // ERG has 9 decimals
+        } else if (yId === ERG_ID || yTicker === 'ERG') {
+          lockedErg = yAmount / 1e9;
+        }
 
         // Determine token1 and token2 (ERG always first if present)
         let token1, token2;
@@ -448,12 +485,16 @@ class ErgoApiService {
           token1 = { id: yId, name: 'ERG', ticker: 'ERG' };
           token2 = { id: xId, name: xName, ticker: xTicker || xId.slice(0, 5) };
         } else {
-          // Token/Token pair
+          // Token/Token pair - use TVL / 2 as ERG estimate (both sides valued equally)
+          lockedErg = tvl / 2;
           token1 = { id: xId, name: xName, ticker: xTicker || xId.slice(0, 5) };
           token2 = { id: yId, name: yName, ticker: yTicker || yId.slice(0, 5) };
         }
 
-        poolMap.set(lpTokenId, { token1, token2, tvl });
+        // LP total supply in decimal form
+        const lpTotalSupply = lpDecimals > 0 ? lpAmount / Math.pow(10, lpDecimals) : lpAmount;
+
+        poolMap.set(lpTokenId, { token1, token2, tvl, lockedErg, lpTotalSupply, lpDecimals });
       }
 
       console.log(`Cached ${poolMap.size} Spectrum pools for LP info lookup`);
@@ -482,6 +523,8 @@ class ErgoApiService {
           lpName: `${poolInfo.token1.ticker}/${poolInfo.token2.ticker} LP`,
           token1: poolInfo.token1,
           token2: poolInfo.token2,
+          lpTotalSupply: poolInfo.lpTotalSupply,
+          lockedErg: poolInfo.lockedErg,
         };
       }
 
@@ -531,28 +574,55 @@ class ErgoApiService {
 
   /**
    * Get LP token value in ERG from Spectrum pool data
-   * Returns the share of TVL based on LP token amount
+   * Returns the share of pool's ERG based on LP token amount
+   * For ERG/token pools: value = user's share * 2 * lockedErg (both sides valued)
+   * For token/token pools: uses TVL estimate
    */
   async getLpTokenValue(lpTokenId: string, lpAmount: number): Promise<number> {
     try {
       const poolCache = await this.getSpectrumPoolCache();
       const poolInfo = poolCache.get(lpTokenId);
 
-      if (poolInfo && poolInfo.tvl > 0) {
-        // Get total LP supply from token info
-        const tokenInfo = await this.getTokenInfo(lpTokenId);
-        if (tokenInfo && tokenInfo.emissionAmount > 0) {
-          const decimals = tokenInfo.decimals || 0;
-          const totalSupply = tokenInfo.emissionAmount / Math.pow(10, decimals);
-          // Value = (user's LP amount / total LP supply) * TVL
-          const shareOfPool = lpAmount / totalSupply;
-          const valueInErg = shareOfPool * poolInfo.tvl;
-          console.log(`LP ${lpTokenId.slice(0,8)}: amount=${lpAmount}, totalSupply=${totalSupply}, tvl=${poolInfo.tvl}, value=${valueInErg}`);
-          return valueInErg;
+      if (poolInfo && poolInfo.lpTotalSupply > 0) {
+        // User's share of the pool
+        const shareOfPool = lpAmount / poolInfo.lpTotalSupply;
+
+        // For ERG pools, value = share * 2 * lockedErg (both sides of LP)
+        // For token/token pools, use TVL
+        let valueInErg: number;
+        if (poolInfo.lockedErg > 0) {
+          // ERG pool - both sides worth approx same, so 2x the ERG side
+          valueInErg = shareOfPool * 2 * poolInfo.lockedErg;
+        } else if (poolInfo.tvl > 0) {
+          // Token/token pool - use TVL
+          valueInErg = shareOfPool * poolInfo.tvl;
+        } else {
+          valueInErg = 0;
         }
+
+        console.log(`LP ${lpTokenId.slice(0,8)}: amount=${lpAmount}, totalSupply=${poolInfo.lpTotalSupply}, lockedErg=${poolInfo.lockedErg}, share=${(shareOfPool * 100).toFixed(4)}%, value=${valueInErg.toFixed(4)} ERG`);
+        return valueInErg;
       }
     } catch (error) {
       console.error('Error calculating LP token value:', error);
+    }
+    return 0;
+  }
+
+  /**
+   * Get LP pool share percentage
+   */
+  async getLpPoolShare(lpTokenId: string, lpAmount: number): Promise<number> {
+    try {
+      const poolCache = await this.getSpectrumPoolCache();
+      const poolInfo = poolCache.get(lpTokenId);
+
+      if (poolInfo && poolInfo.lpTotalSupply > 0) {
+        const sharePercent = (lpAmount / poolInfo.lpTotalSupply) * 100;
+        return sharePercent;
+      }
+    } catch (error) {
+      console.error('Error calculating LP pool share:', error);
     }
     return 0;
   }
