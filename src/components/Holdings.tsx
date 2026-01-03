@@ -85,15 +85,15 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
             <tr className="text-gray-400 border-b border-gray-800">
               <th className="pb-4 text-left">Token</th>
               <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('beginningBalance')}>
-                Beginning Balance
+                Begin
                 {sortField === 'beginningBalance' && (
                   sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-4 text-right">Additions</th>
-              <th className="pb-4 text-right">Reductions</th>
+              <th className="pb-4 text-right">In</th>
+              <th className="pb-4 text-right">Out</th>
               <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('endingBalance')}>
-                Ending Balance
+                End
                 {sortField === 'endingBalance' && (
                   sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
                 )}
@@ -105,7 +105,7 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
                 )}
               </th>
               <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('change24h')}>
-                24h Change
+                Change %
                 {sortField === 'change24h' && (
                   sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
                 )}
@@ -116,13 +116,13 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
             {filteredHoldings.map((holding) => (
               <tr key={holding.token} className="border-b border-gray-800">
                 <td className="py-4 text-white">{holding.token}</td>
-                <td className="py-4 text-right text-white">{holding.beginningBalance.toLocaleString()}</td>
-                <td className="py-4 text-right text-green-400">+{holding.additions.toLocaleString()}</td>
-                <td className="py-4 text-right text-red-400">-{holding.reductions.toLocaleString()}</td>
-                <td className="py-4 text-right text-white">{holding.endingBalance.toLocaleString()}</td>
-                <td className="py-4 text-right text-white">{holding.valueInErg.toLocaleString()} ERG</td>
+                <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
+                <td className="py-4 text-right text-green-400">+{holding.additions.toFixed(1)}</td>
+                <td className="py-4 text-right text-red-400">-{holding.reductions.toFixed(1)}</td>
+                <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
+                <td className="py-4 text-right text-white">{holding.valueInErg.toFixed(2)} ERG</td>
                 <td className={`py-4 text-right ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {holding.change24h >= 0 ? '+' : ''}{holding.change24h}%
+                  {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
                 </td>
               </tr>
             ))}

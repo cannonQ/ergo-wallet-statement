@@ -76,6 +76,7 @@ function App() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [transactionLimit, setTransactionLimit] = useState(5);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -87,7 +88,7 @@ function App() {
         walletAddress,
         month.getFullYear(),
         month.getMonth(),
-        20
+        100 // Fetch up to 100 transactions, UI will limit display
       );
       setTransactions(result.transactions);
       setTotalTransactions(result.total);
@@ -288,6 +289,8 @@ function App() {
               transactions={transactions}
               total={totalTransactions}
               isLoading={loadingTransactions}
+              limit={transactionLimit}
+              onLimitChange={setTransactionLimit}
             />
           </div>
 
