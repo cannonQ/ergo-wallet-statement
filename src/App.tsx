@@ -1,8 +1,42 @@
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
+import { TokenList } from './components/TokenList';
+import { TransactionHistory } from './components/TransactionHistory';
+import { DemurrageAlert } from './components/DemurrageAlert';
+import { NFTGallery } from './components/NFTGallery';
 import { AlertSystem } from './components/AlertSystem';
-import { ergoApi } from './services/ergoApi';
+import { ergoApi, TokenBalance } from './services/ergoApi';
 import type { Alert } from './types';
+
+interface Token {
+  tokenId: string;
+  name: string;
+  amount: number;
+  decimals: number;
+}
+
+interface Transaction {
+  id: string;
+  timestamp: Date;
+  type: 'incoming' | 'outgoing';
+  amount: number;
+  status: 'confirmed';
+}
+
+interface DemurrageBox {
+  boxId: string;
+  valueInErg: number;
+  currentAge: number;
+  demurrageDate: Date;
+  daysUntilDemurrage: number;
+}
+
+interface NFT {
+  tokenId: string;
+  name: string;
+  description: string;
+  type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection';
+}
 
 function App() {
   // Wallet state
@@ -13,6 +47,16 @@ function App() {
 
   // Data state
   const [balance, setBalance] = useState<number | null>(null);
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [demurrageBoxes, setDemurrageBoxes] = useState<DemurrageBox[]>([]);
+  const [nfts, setNfts] = useState<NFT[]>([]);
+
+  // Loading states for individual sections
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingDemurrage, setLoadingDemurrage] = useState(false);
+  const [loadingNFTs, setLoadingNFTs] = useState(false);
 
   // UI state
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -22,19 +66,25 @@ function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // Fetch wallet data
+  // Fetch all wallet data
   const fetchWalletData = useCallback(async (walletAddress: string) => {
     setIsLoading(true);
     setError(null);
     setBalance(null);
+    setTokens([]);
+    setTransactions([]);
+    setDemurrageBoxes([]);
+    setNfts([]);
 
     try {
       if (!ergoApi.isValidAddress(walletAddress)) {
         throw new Error('Invalid Ergo address format');
       }
 
-      const ergBalance = await ergoApi.getErgBalance(walletAddress);
-      setBalance(ergBalance);
+      // Fetch balance and tokens first (most important)
+      const fullBalance = await ergoApi.getFullBalance(walletAddress);
+      setBalance(fullBalance.ergBalance);
+      setTokens(fullBalance.tokens);
       setIsOnline(true);
 
       setAlerts(prev => [
@@ -42,10 +92,36 @@ function App() {
         {
           id: Date.now().toString(),
           type: 'info' as const,
-          message: `Loaded wallet: ${ergBalance.toFixed(4)} ERG`,
+          message: `Loaded wallet: ${fullBalance.ergBalance.toFixed(4)} ERG, ${fullBalance.tokens.length} tokens`,
           expiresAt: new Date(Date.now() + 5000),
         },
       ]);
+
+      // Fetch transactions in background
+      setLoadingTransactions(true);
+      ergoApi.getRecentTransactions(walletAddress, 20)
+        .then(result => {
+          setTransactions(result.transactions);
+          setTotalTransactions(result.total);
+        })
+        .catch(err => console.error('Failed to load transactions:', err))
+        .finally(() => setLoadingTransactions(false));
+
+      // Fetch demurrage boxes in background
+      setLoadingDemurrage(true);
+      ergoApi.getDemurrageBoxes(walletAddress)
+        .then(boxes => setDemurrageBoxes(boxes))
+        .catch(err => console.error('Failed to load demurrage boxes:', err))
+        .finally(() => setLoadingDemurrage(false));
+
+      // Fetch NFTs in background
+      setLoadingNFTs(true);
+      const rawBalance = await ergoApi.getAddressBalance(walletAddress);
+      ergoApi.getNFTs(rawBalance.tokens)
+        .then(nftList => setNfts(nftList))
+        .catch(err => console.error('Failed to load NFTs:', err))
+        .finally(() => setLoadingNFTs(false));
+
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch wallet data';
       setError(message);
@@ -111,14 +187,22 @@ function App() {
       )}
 
       {address && balance !== null && !isLoading && (
-        <div className="bg-gray-900 p-8 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-bold mb-4">Wallet Balance</h2>
-          <div className="text-5xl font-bold text-green-400">
-            {balance.toFixed(4)} ERG
+        <div className="space-y-6">
+          {/* Top row: Token balances and Demurrage alerts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TokenList tokens={tokens} ergBalance={balance} />
+            <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
           </div>
-          <p className="text-gray-400 mt-2">
-            Address: {address.slice(0, 12)}...{address.slice(-8)}
-          </p>
+
+          {/* Transaction history */}
+          <TransactionHistory
+            transactions={transactions}
+            total={totalTransactions}
+            isLoading={loadingTransactions}
+          />
+
+          {/* NFT Gallery */}
+          <NFTGallery nfts={nfts} isLoading={loadingNFTs} />
         </div>
       )}
 
