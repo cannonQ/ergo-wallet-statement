@@ -1,19 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
-import { Chart } from './components/Chart';
-import { PieChart } from './components/PieChart';
-import { Holdings } from './components/Holdings';
 import { AlertSystem } from './components/AlertSystem';
-import { DemurrageAlert } from './components/DemurrageAlert';
-import { WalletSummary } from './components/WalletSummary';
-import { Collectibles } from './components/Collectibles';
 import { ergoApi } from './services/ergoApi';
-import type { Alert, Holding, DemurrageBox, Collectible } from './types';
-
-// Placeholder data for features not yet implemented
-const mockDemurrageBoxes: DemurrageBox[] = [];
-
-const mockCollectibles: Collectible[] = [];
+import type { Alert } from './types';
 
 function App() {
   // Wallet state
@@ -23,53 +12,36 @@ function App() {
   const [isOnline, setIsOnline] = useState(true);
 
   // Data state
-  const [balance, setBalance] = useState<number>(0);
-  const [statementData, setStatementData] = useState<{
-    beginningBalance: number;
-    additions: number;
-    reductions: number;
-    endingBalance: number;
-  } | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
 
   // UI state
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    // Default to current month
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // Fetch wallet data - just balance for now (transaction history is too heavy)
-  const fetchWalletData = useCallback(async (walletAddress: string, _month: Date) => {
+  // Fetch wallet data
+  const fetchWalletData = useCallback(async (walletAddress: string) => {
     setIsLoading(true);
     setError(null);
+    setBalance(null);
 
     try {
-      // Validate address format
       if (!ergoApi.isValidAddress(walletAddress)) {
         throw new Error('Invalid Ergo address format');
       }
 
-      // Fetch just the balance (skip heavy transaction loading for now)
       const ergBalance = await ergoApi.getErgBalance(walletAddress);
-
       setBalance(ergBalance);
-      // For now, just show current balance without transaction history
-      setStatementData({
-        beginningBalance: ergBalance,
-        additions: 0,
-        reductions: 0,
-        endingBalance: ergBalance,
-      });
       setIsOnline(true);
 
-      // Add success alert
       setAlerts(prev => [
         ...prev,
         {
           id: Date.now().toString(),
-          type: 'info',
+          type: 'info' as const,
           message: `Loaded wallet: ${ergBalance.toFixed(4)} ERG`,
           expiresAt: new Date(Date.now() + 5000),
         },
@@ -79,12 +51,11 @@ function App() {
       setError(message);
       setIsOnline(false);
 
-      // Add error alert
       setAlerts(prev => [
         ...prev,
         {
           id: Date.now().toString(),
-          type: 'error',
+          type: 'error' as const,
           message,
         },
       ]);
@@ -93,19 +64,14 @@ function App() {
     }
   }, []);
 
-  // Handle address submission
   const handleAddressSubmit = useCallback((walletAddress: string) => {
     setAddress(walletAddress);
-    fetchWalletData(walletAddress, selectedMonth);
-  }, [fetchWalletData, selectedMonth]);
+    fetchWalletData(walletAddress);
+  }, [fetchWalletData]);
 
-  // Handle month change
   const handleMonthChange = useCallback((month: Date) => {
     setSelectedMonth(month);
-    if (address) {
-      fetchWalletData(address, month);
-    }
-  }, [address, fetchWalletData]);
+  }, []);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
@@ -113,33 +79,6 @@ function App() {
 
   const toggleNotifications = () => {
     setNotificationsEnabled(!notificationsEnabled);
-  };
-
-  // Build holdings data from statement
-  const holdings: Holding[] = statementData ? [
-    {
-      token: 'ERG',
-      amount: statementData.endingBalance,
-      valueInErg: statementData.endingBalance,
-      change24h: 0, // Would need price API for this
-      category: 'ERG' as const,
-      beginningBalance: statementData.beginningBalance,
-      additions: statementData.additions,
-      reductions: statementData.reductions,
-      endingBalance: statementData.endingBalance,
-    },
-  ] : [];
-
-  // Chart data - for now just show current balance
-  const chartData = {
-    labels: statementData ? ['Beginning', 'Ending'] : [],
-    values: statementData ? [statementData.beginningBalance, statementData.endingBalance] : [],
-  };
-
-  // Pie chart data
-  const pieData = {
-    labels: ['ERG'],
-    values: [balance],
   };
 
   return (
@@ -163,24 +102,31 @@ function App() {
         </div>
       )}
 
-      {address && statementData && (
-        <>
-          <div className="grid md:grid-cols-[60%_40%] gap-4 mb-6">
-            <Chart data={chartData} />
-            <PieChart data={pieData} />
+      {isLoading && (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center text-gray-400">
+            <p className="text-xl">Loading wallet data...</p>
           </div>
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-4 mb-6">
-            <WalletSummary holdings={holdings} />
-            <DemurrageAlert boxes={mockDemurrageBoxes} />
+      {address && balance !== null && !isLoading && (
+        <div className="bg-gray-900 p-8 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold mb-4">Wallet Balance</h2>
+          <div className="text-5xl font-bold text-green-400">
+            {balance.toFixed(4)} ERG
           </div>
+          <p className="text-gray-400 mt-2">
+            Address: {address.slice(0, 12)}...{address.slice(-8)}
+          </p>
+        </div>
+      )}
 
-          <Holdings holdings={holdings} />
-
-          {mockCollectibles.length > 0 && (
-            <Collectibles collectibles={mockCollectibles} />
-          )}
-        </>
+      {error && !isLoading && (
+        <div className="bg-red-900/50 border border-red-500 p-6 rounded-lg">
+          <h2 className="text-xl font-bold text-red-400 mb-2">Error</h2>
+          <p className="text-white">{error}</p>
+        </div>
       )}
 
       <AlertSystem
