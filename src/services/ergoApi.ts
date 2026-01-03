@@ -153,8 +153,40 @@ class ErgoApiService {
   private currentHeight: number | null = null;
   private heightFetchedAt: number = 0;
 
+  // LP pair names cache (token ID -> pair name like "ERG/NETA")
+  private lpPairNames: Map<string, string> | null = null;
+  private lpPairNamesFetchedAt: number = 0;
+
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Fetch LP pair names from static JSON file
+   * Returns a map of LP token ID -> pair name (e.g., "ERG/NETA")
+   */
+  async getLpPairNames(): Promise<Map<string, string>> {
+    // Cache for 10 minutes
+    if (this.lpPairNames && Date.now() - this.lpPairNamesFetchedAt < 600000) {
+      return this.lpPairNames;
+    }
+
+    try {
+      const response = await fetch('/data/lp-pairs.json');
+      if (response.ok) {
+        const data = await response.json();
+        this.lpPairNames = new Map(Object.entries(data));
+        this.lpPairNamesFetchedAt = Date.now();
+        console.log(`Loaded ${this.lpPairNames.size} LP pair names`);
+        return this.lpPairNames;
+      }
+    } catch (error) {
+      console.error('Failed to load LP pair names:', error);
+    }
+
+    // Return empty map if fetch fails
+    this.lpPairNames = new Map();
+    return this.lpPairNames;
   }
 
   /**
@@ -1779,6 +1811,9 @@ class ErgoApiService {
     // Pre-fetch pool cache for LP token value calculation
     const poolCache = await this.getSpectrumPoolCache();
 
+    // Fetch LP pair names for friendly display
+    const lpPairNames = await this.getLpPairNames();
+
     console.log('Price map size:', priceMap.size);
     console.log('Token IDs:', tokenIdsForPricing.slice(0, 5));
 
@@ -1787,6 +1822,7 @@ class ErgoApiService {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
       const isArtwork = artworkTokenIds.has(t.tokenId);
       let valueInErg = 0;
+      let displayName = t.name || t.tokenId.slice(0, 8) + '...';
 
       // Skip value calculation for artwork tokens (they don't have meaningful prices)
       if (!isArtwork) {
@@ -1795,7 +1831,12 @@ class ErgoApiService {
         if (poolInfo) {
           // This is an LP token - calculate value from pool TVL
           valueInErg = await this.getLpTokenValue(t.tokenId, amount);
-          console.log(`LP token ${t.name || t.tokenId.slice(0,8)}: amount=${amount}, value=${valueInErg} ERG`);
+          // Use friendly pair name if available (e.g., "ERG/NETA" instead of LP token ID)
+          const pairName = lpPairNames.get(t.tokenId);
+          if (pairName) {
+            displayName = `LP ${pairName}`;
+          }
+          console.log(`LP token ${displayName}: amount=${amount}, value=${valueInErg} ERG`);
         } else {
           // Regular token - use price from priceMap
           const priceInErg = priceMap.get(t.tokenId) || 0;
@@ -1805,7 +1846,7 @@ class ErgoApiService {
 
       return {
         tokenId: t.tokenId,
-        name: t.name || t.tokenId.slice(0, 8) + '...',
+        name: displayName,
         amount,
         decimals: t.decimals,
         valueInErg,
