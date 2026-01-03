@@ -17,14 +17,14 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
   const getCategorySummary = (category: string): CategorySummary => {
     const categoryHoldings = holdings.filter(h => h.category === category);
     const endingBalance = categoryHoldings.reduce((sum, h) => sum + h.valueInErg, 0);
-    // Simulate beginning balance by subtracting the change
-    const beginningBalance = endingBalance / (1 + categoryHoldings.reduce((sum, h) => sum + h.change24h/100, 0));
+    // Use beginning balance from holdings if available, otherwise use ending balance
+    const beginningBalance = categoryHoldings.reduce((sum, h) => sum + h.beginningBalance, 0) || endingBalance;
     const change = endingBalance - beginningBalance;
-    
+
     return {
-      beginningBalance,
-      endingBalance,
-      change
+      beginningBalance: isNaN(beginningBalance) ? 0 : beginningBalance,
+      endingBalance: isNaN(endingBalance) ? 0 : endingBalance,
+      change: isNaN(change) ? 0 : change
     };
   };
 
@@ -45,8 +45,10 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
           <tbody>
             {categories.map((category) => {
               const summary = getCategorySummary(category);
-              const changePercent = ((summary.change / summary.beginningBalance) * 100);
-              
+              const changePercent = summary.beginningBalance > 0
+                ? ((summary.change / summary.beginningBalance) * 100)
+                : 0;
+
               return (
                 <tr key={category} className="border-b border-gray-800">
                   <td className="py-4 text-white">{category}</td>
@@ -57,7 +59,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
                     {summary.change >= 0 ? '+' : ''}{summary.change.toFixed(2)}
                   </td>
                   <td className={`py-4 text-right ${changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
+                    {changePercent >= 0 ? '+' : ''}{isFinite(changePercent) ? changePercent.toFixed(2) : '0.00'}%
                   </td>
                   <td className="py-4 text-right text-white">
                     {summary.endingBalance.toFixed(2)}
