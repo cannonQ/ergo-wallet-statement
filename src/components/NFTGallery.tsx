@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Image, ExternalLink, Music, Video, Palette } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Image, ExternalLink, Music, Video, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const PAGE_SIZE = 20;
 
 interface NFT {
   tokenId: string;
@@ -16,6 +18,7 @@ interface NFTGalleryProps {
 
 export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false }) => {
   const [selectedType, setSelectedType] = useState<string>('All');
+  const [page, setPage] = useState(0);
   // Track which images have failed to load
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const types = ['All', 'NFT', 'Audio', 'Video', 'Artwork Collection'];
@@ -36,9 +39,25 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
     return nft.artworkUrl || null;
   };
 
-  const filteredNfts = selectedType === 'All'
-    ? nfts
-    : nfts.filter(nft => nft.type === selectedType);
+  // Filter by type
+  const filteredNfts = useMemo(() => {
+    return selectedType === 'All'
+      ? nfts
+      : nfts.filter(nft => nft.type === selectedType);
+  }, [nfts, selectedType]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredNfts.length / PAGE_SIZE);
+  const paginatedNfts = filteredNfts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const handlePrevPage = () => setPage(p => Math.max(0, p - 1));
+  const handleNextPage = () => setPage(p => Math.min(totalPages - 1, p + 1));
+
+  // Reset page when filter changes
+  const handleTypeChange = (type: string) => {
+    setSelectedType(type);
+    setPage(0);
+  };
 
   const getIcon = (type: NFT['type']) => {
     switch (type) {
@@ -102,7 +121,31 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
           <Image className="w-5 h-5 text-pink-400" />
           <h2 className="text-xl font-bold text-white">NFTs & Collectibles</h2>
         </div>
-        <span className="text-gray-400 text-sm">{filteredNfts.length} of {nfts.length} item{nfts.length !== 1 ? 's' : ''}</span>
+        <div className="flex items-center space-x-3">
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={handlePrevPage}
+                disabled={page === 0}
+                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-400" />
+              </button>
+              <span className="text-gray-400 text-xs">
+                {page + 1}/{totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={page >= totalPages - 1}
+                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+          )}
+          <span className="text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
+        </div>
       </div>
 
       {/* Filter buttons */}
@@ -115,7 +158,7 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
                 ? 'bg-pink-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
-            onClick={() => setSelectedType(type)}
+            onClick={() => handleTypeChange(type)}
           >
             {type}
           </button>
@@ -123,7 +166,7 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {filteredNfts.map((nft) => (
+        {paginatedNfts.map((nft) => (
           <div
             key={nft.tokenId}
             className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
