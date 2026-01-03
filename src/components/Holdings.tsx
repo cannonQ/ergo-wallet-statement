@@ -12,7 +12,7 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof Holding>('valueInErg');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ERG'); // Default to ERG
   const [lpPairInfoMap, setLpPairInfoMap] = useState<Map<string, LpPairInfo>>(new Map());
 
   // Fetch LP pair info for LP/Lending tokens
@@ -41,29 +41,23 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
 
   const categories = ['ERG', 'Stables', 'Tokens', 'Liquidity/Lending'];
 
-  // Get button style based on category and selection state
-  const getButtonStyle = (category: string | null, isSelected: boolean) => {
-    if (category === null) {
-      // "All" button
-      return isSelected
-        ? 'bg-gray-600 text-white'
-        : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700';
-    }
-    const colorConfig = getCategoryColor(category);
-    return isSelected
-      ? `text-white`
-      : `bg-gray-800/50 text-gray-400 hover:bg-gray-700`;
-  };
-
   const filteredHoldings = holdings
-    .filter(holding => 
-      holding.token.toLowerCase().includes(search.toLowerCase()) &&
-      (selectedCategory === 'All' || holding.category === selectedCategory)
-    )
+    .filter(holding => {
+      // Basic search and category filter
+      const matchesSearch = holding.token.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = selectedCategory === 'All' || holding.category === selectedCategory;
+
+      // For Tokens category, exclude NFTs (amount === 1)
+      if (holding.category === 'Tokens' && holding.amount === 1) {
+        return false; // NFTs have amount of exactly 1
+      }
+
+      return matchesSearch && matchesCategory;
+    })
     .sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
-      return sortDirection === 'asc' 
+      return sortDirection === 'asc'
         ? (aValue > bValue ? 1 : -1)
         : (aValue < bValue ? 1 : -1);
     });
@@ -101,10 +95,13 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
                   key={category}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     isSelected
-                      ? 'text-white'
+                      ? 'text-white border'
                       : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700'
                   }`}
-                  style={isSelected ? { backgroundColor: colorConfig.primary } : undefined}
+                  style={isSelected ? {
+                    backgroundColor: colorConfig.bg,
+                    borderColor: colorConfig.primary
+                  } : undefined}
                   onClick={() => setSelectedCategory(category)}
                 >
                   {category === 'Liquidity/Lending' ? 'Liquidity' : category}

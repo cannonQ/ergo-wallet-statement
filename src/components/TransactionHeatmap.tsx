@@ -11,11 +11,15 @@ interface Transaction {
 interface TransactionHeatmapProps {
   transactions: Transaction[];
   selectedMonth: Date;
+  selectedDate?: Date | null;
+  onDateSelect?: (date: Date | null) => void;
 }
 
 export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
   transactions,
   selectedMonth,
+  selectedDate,
+  onDateSelect,
 }) => {
   // Group transactions by date
   const transactionsByDate = useMemo(() => {
@@ -112,16 +116,35 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
               const data = transactionsByDate.get(dateKey) || { count: 0, incoming: 0, outgoing: 0 };
               const dayNum = format(day, 'd');
 
+              const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === dateKey;
+              const hasTransactions = data.count > 0;
+
               return (
                 <div
                   key={dayIndex}
-                  className={`aspect-square rounded flex items-center justify-center text-xs relative group cursor-default ${getColorClass(data.count)}`}
-                  title={data.count > 0 ? `${data.count} tx on ${format(day, 'MMM d')}\nIn: +${data.incoming.toFixed(2)} ERG\nOut: -${data.outgoing.toFixed(2)} ERG` : `${format(day, 'MMM d')}: No transactions`}
+                  className={`aspect-square rounded flex items-center justify-center text-xs relative group transition-all ${
+                    isSelected
+                      ? 'ring-2 ring-purple-400 ring-offset-1 ring-offset-gray-900'
+                      : ''
+                  } ${getColorClass(data.count)} ${
+                    hasTransactions ? 'cursor-pointer hover:scale-105' : 'cursor-default'
+                  }`}
+                  title={hasTransactions ? `Click to filter: ${data.count} tx on ${format(day, 'MMM d')}\nIn: +${data.incoming.toFixed(2)} ERG\nOut: -${data.outgoing.toFixed(2)} ERG` : `${format(day, 'MMM d')}: No transactions`}
+                  onClick={() => {
+                    if (hasTransactions && onDateSelect) {
+                      // Toggle selection
+                      if (isSelected) {
+                        onDateSelect(null);
+                      } else {
+                        onDateSelect(day);
+                      }
+                    }
+                  }}
                 >
-                  <span className={`${data.count > 0 ? 'text-white' : 'text-gray-500'}`}>
+                  <span className={`${hasTransactions ? 'text-white' : 'text-gray-500'}`}>
                     {dayNum}
                   </span>
-                  {data.count > 0 && (
+                  {hasTransactions && (
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full text-[10px] text-white flex items-center justify-center">
                       {data.count}
                     </span>

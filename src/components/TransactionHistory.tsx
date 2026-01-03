@@ -1,6 +1,6 @@
-import React from 'react';
-import { ArrowDownLeft, ArrowUpRight, History, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
+import React, { useState, useMemo } from 'react';
+import { ArrowDownLeft, ArrowUpRight, History, ExternalLink, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { format, isSameDay } from 'date-fns';
 import { formatNumber } from '../constants';
 
 interface Transaction {
@@ -17,9 +17,12 @@ interface TransactionHistoryProps {
   isLoading?: boolean;
   limit: number;
   onLimitChange: (limit: number) => void;
+  selectedDate?: Date | null;
+  onClearDateFilter?: () => void;
 }
 
 const LIMIT_OPTIONS = [20, 40, 60, 100];
+const PAGE_SIZE = 20;
 
 export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   transactions,
@@ -27,12 +30,31 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   isLoading = false,
   limit,
   onLimitChange,
+  selectedDate,
+  onClearDateFilter,
 }) => {
+  const [page, setPage] = useState(0);
+
   const openExplorer = (txId: string) => {
     window.open(`https://ergexplorer.com/transactions#${txId}`, '_blank');
   };
 
-  const displayedTransactions = transactions.slice(0, limit);
+  // Filter by selected date if provided
+  const filteredTransactions = useMemo(() => {
+    if (!selectedDate) return transactions;
+    return transactions.filter(tx => isSameDay(tx.timestamp, selectedDate));
+  }, [transactions, selectedDate]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / PAGE_SIZE);
+  const displayedTransactions = filteredTransactions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const handlePrevPage = () => setPage(p => Math.max(0, p - 1));
+  const handleNextPage = () => setPage(p => Math.min(totalPages - 1, p + 1));
+
+  // Reset page when date filter changes
+  React.useEffect(() => {
+    setPage(0);
+  }, [selectedDate]);
 
   return (
     <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
@@ -40,21 +62,41 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         <div className="flex items-center space-x-2">
           <History className="w-5 h-5 text-purple-400" />
           <h2 className="text-lg font-bold text-white">Recent Transactions</h2>
+          {selectedDate && (
+            <div className="flex items-center bg-purple-600/30 text-purple-300 px-2 py-1 rounded text-xs">
+              <span>{format(selectedDate, 'MMM d, yyyy')}</span>
+              <button
+                onClick={onClearDateFilter}
+                className="ml-1 hover:text-white"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex items-center space-x-3">
-          <select
-            value={limit}
-            onChange={(e) => onLimitChange(Number(e.target.value))}
-            className="bg-gray-800 text-white text-sm px-2 py-1 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
-          >
-            {LIMIT_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt} tx
-              </option>
-            ))}
-          </select>
+          {/* Pagination */}
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={handlePrevPage}
+              disabled={page === 0}
+              className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-gray-400 text-xs">
+              {page + 1}/{Math.max(1, totalPages)}
+            </span>
+            <button
+              onClick={handleNextPage}
+              disabled={page >= totalPages - 1}
+              className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
           <span className="text-gray-400 text-sm">
-            {displayedTransactions.length} of {total}
+            {filteredTransactions.length} tx
           </span>
         </div>
       </div>
