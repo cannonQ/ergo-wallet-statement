@@ -219,6 +219,7 @@ function App() {
     // ERG holding - use selected month's balance
     {
       token: 'ERG',
+      tokenId: '', // ERG has no token ID
       amount: selectedMonthBalance,
       valueInErg: selectedMonthBalance, // ERG value = ERG amount
       change24h: 0,
@@ -231,6 +232,7 @@ function App() {
     // Token holdings with ERG values from Crux Finance prices (current values)
     ...tokens.map(token => ({
       token: token.name,
+      tokenId: token.tokenId,
       amount: token.amount,
       valueInErg: token.valueInErg, // ERG equivalent from Crux prices
       change24h: 0,
