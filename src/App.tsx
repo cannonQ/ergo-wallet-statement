@@ -16,6 +16,7 @@ interface Token {
   name: string;
   amount: number;
   decimals: number;
+  valueInErg: number;
 }
 
 interface Transaction {
@@ -114,8 +115,8 @@ function App() {
         throw new Error('Invalid Ergo address format');
       }
 
-      // Fetch balance and tokens first (most important)
-      const fullBalance = await ergoApi.getFullBalance(walletAddress);
+      // Fetch balance, tokens and prices (most important)
+      const fullBalance = await ergoApi.getFullBalanceWithPrices(walletAddress);
       setBalance(fullBalance.ergBalance);
       setTokens(fullBalance.tokens);
       setIsOnline(true);
@@ -188,7 +189,7 @@ function App() {
   };
 
   // Convert tokens to Holdings format for the original components
-  // Note: valueInErg shows ERG equivalent - currently only ERG has value since we don't have token prices
+  // Note: valueInErg shows ERG equivalent from Spectrum Finance prices
   const holdings: Holding[] = balance !== null ? [
     // ERG holding
     {
@@ -202,17 +203,17 @@ function App() {
       reductions: 0,
       endingBalance: balance,
     },
-    // Token holdings - valueInErg is 0 without price API
+    // Token holdings with ERG values from Spectrum Finance prices
     ...tokens.map(token => ({
       token: token.name,
       amount: token.amount,
-      valueInErg: 0, // Would need price API for ERG equivalent
+      valueInErg: token.valueInErg, // ERG equivalent from Spectrum prices
       change24h: 0,
       category: categorizeToken(token.name),
-      beginningBalance: token.amount,
+      beginningBalance: token.valueInErg, // Use ERG value for beginning balance
       additions: 0,
       reductions: 0,
-      endingBalance: token.amount,
+      endingBalance: token.valueInErg, // Use ERG value for ending balance
     })),
   ] : [];
 

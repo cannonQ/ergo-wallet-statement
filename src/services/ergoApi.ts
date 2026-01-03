@@ -4,6 +4,9 @@
 // Use the public Ergo Explorer API
 const API_BASE_URL = 'https://api.ergoplatform.com/api/v1';
 
+// Spectrum Finance API for token prices
+const SPECTRUM_API_URL = 'https://api.spectrum.fi/v1';
+
 // Ergo has 10^9 nanoErgs per ERG
 const NANOERG_TO_ERG = 1_000_000_000;
 
@@ -221,7 +224,7 @@ class ErgoApiService {
   }
 
   /**
-   * Get transactions for a specific month (limited to avoid heavy loading)
+   * Get transactions for a specific month (with client-side filtering)
    */
   async getMonthTransactions(
     address: string,
@@ -241,18 +244,22 @@ class ErgoApiService {
     // Calculate month start and end timestamps
     const startDate = new Date(year, month, 1);
     const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
     const fromTimestamp = startDate.getTime();
     const toTimestamp = endDate.getTime();
 
+    // Fetch more transactions than limit to ensure we get enough for the month
+    // The API returns transactions sorted by timestamp descending
     const response = await this.getAddressTransactions(address, {
-      limit,
+      limit: 100, // Fetch more to filter
       offset: 0,
-      fromTimestamp,
-      toTimestamp,
     });
 
-    const transactions = response.items.map(tx => {
+    // Filter transactions by timestamp (client-side filtering)
+    const filteredTxs = response.items.filter(tx => {
+      return tx.timestamp >= fromTimestamp && tx.timestamp <= toTimestamp;
+    });
+
+    const transactions = filteredTxs.slice(0, limit).map(tx => {
       // Calculate net ERG change for this address
       const inputValue = tx.inputs
         .filter(input => input.address === address)
@@ -275,7 +282,7 @@ class ErgoApiService {
 
     return {
       transactions,
-      total: response.total,
+      total: filteredTxs.length,
     };
   }
 
@@ -416,6 +423,91 @@ class ErgoApiService {
     // Ergo mainnet addresses start with '9' and are 51 characters long
     // This is a basic validation - the API will do full validation
     return /^9[a-zA-Z0-9]{50}$/.test(address);
+  }
+
+  /**
+   * Get token prices from Spectrum Finance AMM
+   * Returns a map of tokenId -> price in ERG
+   */
+  async getTokenPrices(): Promise<Map<string, number>> {
+    const priceMap = new Map<string, number>();
+
+    try {
+      const response = await fetch(`${SPECTRUM_API_URL}/amm/markets`);
+      if (!response.ok) {
+        console.error('Failed to fetch Spectrum markets:', response.status);
+        return priceMap;
+      }
+
+      const markets = await response.json();
+
+      // Process each market to extract token prices
+      // Markets are pairs like ERG/SigUSD, so we calculate prices relative to ERG
+      for (const market of markets) {
+        try {
+          // Market structure: { baseId, baseSymbol, quoteId, quoteSymbol, lastPrice, ... }
+          const baseId = market.baseId;
+          const quoteId = market.quoteId;
+          const baseSymbol = market.baseSymbol?.toUpperCase() || '';
+          const quoteSymbol = market.quoteSymbol?.toUpperCase() || '';
+          const lastPrice = parseFloat(market.lastPrice) || 0;
+
+          if (lastPrice > 0) {
+            // If base is ERG, quote token price = 1/lastPrice ERG
+            // If quote is ERG, base token price = lastPrice ERG
+            if (baseSymbol === 'ERG' && quoteId) {
+              priceMap.set(quoteId, 1 / lastPrice);
+            } else if (quoteSymbol === 'ERG' && baseId) {
+              priceMap.set(baseId, lastPrice);
+            }
+          }
+        } catch {
+          // Skip malformed market entries
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching token prices from Spectrum:', error);
+    }
+
+    return priceMap;
+  }
+
+  /**
+   * Get full balance with tokens and their ERG values
+   */
+  async getFullBalanceWithPrices(address: string): Promise<{
+    ergBalance: number;
+    tokens: Array<{
+      tokenId: string;
+      name: string;
+      amount: number;
+      decimals: number;
+      valueInErg: number;
+    }>;
+  }> {
+    // Fetch balance and prices in parallel
+    const [balance, priceMap] = await Promise.all([
+      this.getAddressBalance(address),
+      this.getTokenPrices(),
+    ]);
+
+    const tokens = balance.tokens.map(t => {
+      const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
+      const priceInErg = priceMap.get(t.tokenId) || 0;
+
+      return {
+        tokenId: t.tokenId,
+        name: t.name || t.tokenId.slice(0, 8) + '...',
+        amount,
+        decimals: t.decimals,
+        valueInErg: amount * priceInErg,
+      };
+    });
+
+    return {
+      ergBalance: balance.nanoErgs / NANOERG_TO_ERG,
+      tokens,
+    };
   }
 }
 
