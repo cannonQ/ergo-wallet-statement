@@ -80,34 +80,43 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-[200px]" /> {/* Token */}
+            <col className="w-[120px]" /> {/* Begin */}
+            <col className="w-[80px]" />  {/* In */}
+            <col className="w-[80px]" />  {/* Out */}
+            <col className="w-[120px]" /> {/* End */}
+            <col className="w-[140px]" /> {/* Value (ERG) */}
+            <col className="w-[100px]" /> {/* Change % */}
+          </colgroup>
           <thead>
-            <tr className="text-gray-400 border-b border-gray-800">
-              <th className="pb-4 text-left">Token</th>
-              <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('beginningBalance')}>
+            <tr className="text-gray-400 border-b border-gray-800 text-sm">
+              <th className="pb-3 text-left font-medium">Token</th>
+              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('beginningBalance')}>
                 Begin
                 {sortField === 'beginningBalance' && (
-                  sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-4 text-right">In</th>
-              <th className="pb-4 text-right">Out</th>
-              <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('endingBalance')}>
+              <th className="pb-3 text-right font-medium">In</th>
+              <th className="pb-3 text-right font-medium">Out</th>
+              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('endingBalance')}>
                 End
                 {sortField === 'endingBalance' && (
-                  sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('valueInErg')}>
+              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('valueInErg')}>
                 Value (ERG)
                 {sortField === 'valueInErg' && (
-                  sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-4 text-right cursor-pointer" onClick={() => toggleSort('change24h')}>
+              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('change24h')}>
                 Change %
                 {sortField === 'change24h' && (
-                  sortDirection === 'asc' ? <ChevronUp size={16} className="inline ml-1" /> : <ChevronDown size={16} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
                 )}
               </th>
             </tr>
@@ -120,27 +129,29 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
               const shortTokenId = holding.tokenId ? holding.tokenId.slice(0, 5) : '';
 
               return (
-                <tr key={holding.tokenId || holding.token} className="border-b border-gray-800">
-                  <td className="py-4 text-white">
-                    <span title={holding.token}>{displayName}</span>
-                    {shortTokenId && (
-                      <a
-                        href={`https://ergexplorer.com/token#${holding.tokenId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-2 text-gray-500 hover:text-blue-400 text-xs"
-                        title={holding.tokenId}
-                      >
-                        ({shortTokenId}...)
-                      </a>
-                    )}
+                <tr key={holding.tokenId || holding.token} className="border-b border-gray-800 hover:bg-gray-800/50">
+                  <td className="py-3 text-white">
+                    <div className="flex items-center gap-2">
+                      <span title={holding.token} className="font-medium">{displayName}</span>
+                      {shortTokenId && (
+                        <a
+                          href={`https://ergexplorer.com/token#${holding.tokenId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-500 hover:text-blue-400 text-xs"
+                          title={holding.tokenId}
+                        >
+                          ({shortTokenId}...)
+                        </a>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
-                  <td className="py-4 text-right text-green-400">+{holding.additions.toFixed(1)}</td>
-                  <td className="py-4 text-right text-red-400">-{holding.reductions.toFixed(1)}</td>
-                  <td className="py-4 text-right text-white">{holding.amount.toFixed(1)}</td>
-                  <td className="py-4 text-right text-white">{holding.valueInErg.toFixed(2)} ERG</td>
-                  <td className={`py-4 text-right ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <td className="py-3 text-right text-white tabular-nums">{holding.amount.toFixed(1)}</td>
+                  <td className="py-3 text-right text-green-400 tabular-nums">+{holding.additions.toFixed(1)}</td>
+                  <td className="py-3 text-right text-red-400 tabular-nums">-{holding.reductions.toFixed(1)}</td>
+                  <td className="py-3 text-right text-white tabular-nums">{holding.amount.toFixed(1)}</td>
+                  <td className="py-3 text-right text-white tabular-nums">{holding.valueInErg.toFixed(2)} ERG</td>
+                  <td className={`py-3 text-right tabular-nums ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
                   </td>
                 </tr>
