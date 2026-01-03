@@ -200,32 +200,45 @@ function App() {
     setNotificationsEnabled(!notificationsEnabled);
   };
 
+  // Get ERG balance for the selected month from history
+  const getSelectedMonthBalance = (): number => {
+    if (balanceHistory.length === 0) return balance ?? 0;
+
+    const selectedMonthLabel = selectedMonth.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const monthData = balanceHistory.find(h => h.month === selectedMonthLabel);
+
+    // If selected month is in history, use that balance; otherwise use current
+    return monthData?.balance ?? balance ?? 0;
+  };
+
+  const selectedMonthBalance = getSelectedMonthBalance();
+
   // Convert tokens to Holdings format for the original components
-  // Note: valueInErg shows ERG equivalent from Spectrum Finance prices
+  // Note: ERG shows selected month's ending balance, tokens show current values
   const holdings: Holding[] = balance !== null ? [
-    // ERG holding
+    // ERG holding - use selected month's balance
     {
       token: 'ERG',
-      amount: balance,
-      valueInErg: balance, // ERG value = ERG amount
+      amount: selectedMonthBalance,
+      valueInErg: selectedMonthBalance, // ERG value = ERG amount
       change24h: 0,
       category: 'ERG' as const,
-      beginningBalance: balance,
+      beginningBalance: selectedMonthBalance,
       additions: 0,
       reductions: 0,
-      endingBalance: balance,
+      endingBalance: selectedMonthBalance,
     },
-    // Token holdings with ERG values from Spectrum Finance prices
+    // Token holdings with ERG values from Crux Finance prices (current values)
     ...tokens.map(token => ({
       token: token.name,
       amount: token.amount,
-      valueInErg: token.valueInErg, // ERG equivalent from Spectrum prices
+      valueInErg: token.valueInErg, // ERG equivalent from Crux prices
       change24h: 0,
       category: categorizeToken(token.name),
-      beginningBalance: token.valueInErg, // Use ERG value for beginning balance
+      beginningBalance: token.valueInErg,
       additions: 0,
       reductions: 0,
-      endingBalance: token.valueInErg, // Use ERG value for ending balance
+      endingBalance: token.valueInErg,
     })),
   ] : [];
 

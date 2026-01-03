@@ -512,9 +512,11 @@ class ErgoApiService {
         return 0;
       }
       const data = await response.json();
-      // Crux API returns price in ERG
-      return parseFloat(data.price) || 0;
-    } catch {
+      // Try different possible field names for price
+      const price = data.price ?? data.erg_price ?? data.priceInErg ?? data.ergPrice ?? 0;
+      return parseFloat(price) || 0;
+    } catch (err) {
+      console.error(`Error fetching price for ${tokenId}:`, err);
       return 0;
     }
   }
