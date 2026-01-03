@@ -1,7 +1,8 @@
 // Ergo Explorer API Service
 // API Documentation: https://api.ergoplatform.com/docs/openapi
 
-const API_BASE_URL = 'https://api-p2p.ergoplatform.com/api/v1';
+// Use the public Ergo Explorer API
+const API_BASE_URL = 'https://api.ergoplatform.com/api/v1';
 
 // Ergo has 10^9 nanoErgs per ERG
 const NANOERG_TO_ERG = 1_000_000_000;
@@ -70,11 +71,20 @@ class ErgoApiService {
    * Fetch total balance for an address (confirmed balance)
    */
   async getAddressBalance(address: string): Promise<BalanceResponse> {
-    const response = await fetch(`${this.baseUrl}/addresses/${address}/balance/total`);
+    let response: Response;
+
+    try {
+      response = await fetch(`${this.baseUrl}/addresses/${address}/balance/total`);
+    } catch (error) {
+      throw new Error('Network error: Unable to connect to Ergo API. Please check your internet connection.');
+    }
 
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error('Address not found or has no transaction history');
+      }
+      if (response.status === 403) {
+        throw new Error('API access denied. The API may be temporarily unavailable.');
       }
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
@@ -116,7 +126,13 @@ class ErgoApiService {
     const queryString = params.toString();
     const url = `${this.baseUrl}/addresses/${address}/transactions${queryString ? `?${queryString}` : ''}`;
 
-    const response = await fetch(url);
+    let response: Response;
+
+    try {
+      response = await fetch(url);
+    } catch (error) {
+      throw new Error('Network error: Unable to fetch transactions.');
+    }
 
     if (!response.ok) {
       if (response.status === 404) {
