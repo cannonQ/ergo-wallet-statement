@@ -72,6 +72,8 @@ function App() {
 
   // Loading states for individual sections
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingMoreTransactions, setLoadingMoreTransactions] = useState(false);
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(false);
   const [loadingDemurrage, setLoadingDemurrage] = useState(false);
   const [loadingNFTs, setLoadingNFTs] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -92,6 +94,7 @@ function App() {
   // Fetch transactions and token movements for selected month
   const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date) => {
     setLoadingTransactions(true);
+    setHasMoreTransactions(false);
     try {
       // Fetch transactions and token movements in parallel
       const [txResult, movements] = await Promise.all([
@@ -99,7 +102,8 @@ function App() {
           walletAddress,
           month.getFullYear(),
           month.getMonth(),
-          100 // Fetch up to 100 transactions, UI will limit display
+          20, // Initial limit
+          0   // Start from offset 0
         ),
         ergoApi.getTokenMovements(
           walletAddress,
@@ -109,16 +113,43 @@ function App() {
       ]);
       setTransactions(txResult.transactions);
       setTotalTransactions(txResult.total);
+      setHasMoreTransactions(txResult.hasMore);
       setTokenMovements(movements);
     } catch (err) {
       console.error('Failed to load transactions:', err);
       setTransactions([]);
       setTotalTransactions(0);
+      setHasMoreTransactions(false);
       setTokenMovements(new Map());
     } finally {
       setLoadingTransactions(false);
     }
   }, []);
+
+  // Load more transactions for current month
+  const loadMoreTransactions = useCallback(async () => {
+    if (!address || loadingMoreTransactions || !hasMoreTransactions) return;
+
+    setLoadingMoreTransactions(true);
+    try {
+      const txResult = await ergoApi.getMonthTransactions(
+        address,
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        20, // Load 20 more
+        transactions.length // Offset by current count
+      );
+
+      // Append new transactions to existing list
+      setTransactions(prev => [...prev, ...txResult.transactions]);
+      setTotalTransactions(txResult.total);
+      setHasMoreTransactions(txResult.hasMore);
+    } catch (err) {
+      console.error('Failed to load more transactions:', err);
+    } finally {
+      setLoadingMoreTransactions(false);
+    }
+  }, [address, selectedMonth, transactions.length, loadingMoreTransactions, hasMoreTransactions]);
 
   // Fetch all wallet data
   const fetchWalletData = useCallback(async (walletAddress: string, month: Date) => {
@@ -358,7 +389,7 @@ function App() {
 
           {/* Holdings table */}
           <div className="mb-6">
-            <Holdings holdings={holdings} />
+            <Holdings holdings={holdings} selectedMonth={selectedMonth} />
           </div>
 
           {/* Transaction Activity */}
@@ -376,8 +407,9 @@ function App() {
                 transactions={transactions}
                 total={totalTransactions}
                 isLoading={loadingTransactions}
-                limit={transactionLimit}
-                onLimitChange={setTransactionLimit}
+                isLoadingMore={loadingMoreTransactions}
+                hasMore={hasMoreTransactions}
+                onLoadMore={loadMoreTransactions}
                 selectedDate={selectedDate}
                 onClearDateFilter={() => setSelectedDate(null)}
               />

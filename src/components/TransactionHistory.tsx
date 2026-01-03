@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowDownLeft, ArrowUpRight, History, ExternalLink, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, History, ExternalLink, ChevronLeft, ChevronRight, X, ChevronDown } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { formatNumber } from '../constants';
 
@@ -15,21 +15,22 @@ interface TransactionHistoryProps {
   transactions: Transaction[];
   total: number;
   isLoading?: boolean;
-  limit: number;
-  onLimitChange: (limit: number) => void;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
   selectedDate?: Date | null;
   onClearDateFilter?: () => void;
 }
 
-const LIMIT_OPTIONS = [20, 40, 60, 100];
 const PAGE_SIZE = 20;
 
 export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   transactions,
   total,
   isLoading = false,
-  limit,
-  onLimitChange,
+  isLoadingMore = false,
+  hasMore = false,
+  onLoadMore,
   selectedDate,
   onClearDateFilter,
 }) => {
@@ -110,43 +111,63 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           No transactions found
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-2">
-          {displayedTransactions.map((tx) => (
-            <div
-              key={tx.id}
-              className="p-2 bg-gray-800 rounded hover:bg-gray-750 transition-colors cursor-pointer group"
-              onClick={() => openExplorer(tx.id)}
-              title={`${tx.type === 'incoming' ? 'Received' : 'Sent'} ${formatNumber(tx.amount, 4)} ERG\n${format(tx.timestamp, 'MMM d, yyyy HH:mm')}\n${tx.id}`}
-            >
-              <div className="flex items-center justify-between mb-1">
+        <>
+          <div className="grid grid-cols-4 gap-2">
+            {displayedTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="p-2 bg-gray-800 rounded hover:bg-gray-750 transition-colors cursor-pointer group"
+                onClick={() => openExplorer(tx.id)}
+                title={`${tx.type === 'incoming' ? 'Received' : 'Sent'} ${formatNumber(tx.amount, 4)} ERG\n${format(tx.timestamp, 'MMM d, yyyy HH:mm')}\n${tx.id}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      tx.type === 'incoming'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}
+                  >
+                    {tx.type === 'incoming' ? (
+                      <ArrowDownLeft className="w-3 h-3" />
+                    ) : (
+                      <ArrowUpRight className="w-3 h-3" />
+                    )}
+                  </div>
+                  <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-gray-400" />
+                </div>
                 <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                    tx.type === 'incoming'
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-red-500/20 text-red-400'
+                  className={`text-xs font-medium truncate ${
+                    tx.type === 'incoming' ? 'text-green-400' : 'text-red-400'
                   }`}
                 >
-                  {tx.type === 'incoming' ? (
-                    <ArrowDownLeft className="w-3 h-3" />
-                  ) : (
-                    <ArrowUpRight className="w-3 h-3" />
-                  )}
+                  {tx.type === 'incoming' ? '+' : '-'}{formatNumber(tx.amount, 2)}
                 </div>
-                <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-gray-400" />
+                <div className="text-gray-500 text-xs truncate">
+                  {format(tx.timestamp, 'MMM d')}
+                </div>
               </div>
-              <div
-                className={`text-xs font-medium truncate ${
-                  tx.type === 'incoming' ? 'text-green-400' : 'text-red-400'
-                }`}
-              >
-                {tx.type === 'incoming' ? '+' : '-'}{formatNumber(tx.amount, 2)}
-              </div>
-              <div className="text-gray-500 text-xs truncate">
-                {format(tx.timestamp, 'MMM d')}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {/* Load More button */}
+          {hasMore && !selectedDate && (
+            <button
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="mt-4 w-full py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            >
+              {isLoadingMore ? (
+                <span>Loading...</span>
+              ) : (
+                <>
+                  <ChevronDown className="w-4 h-4" />
+                  <span>Load More ({total - transactions.length} remaining)</span>
+                </>
+              )}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
