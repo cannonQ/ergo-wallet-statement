@@ -621,6 +621,9 @@ class ErgoApiService {
       const pools = await response.json();
       console.log('Spectrum pools count:', pools?.length || 0);
 
+      // ERG token ID is all zeros (native token)
+      const ERG_TOKEN_ID = '0000000000000000000000000000000000000000000000000000000000000000';
+
       // Debug tokens we're investigating
       const DEBUG_TOKENS = [
         '0779ec04f2fae64e87418a1ad917639d4668f78484f45df962b0dec14a2591d2', // Mi Goreng
@@ -628,50 +631,65 @@ class ErgoApiService {
       ];
 
       // Process pools to extract token prices - use pool with largest liquidity
+      // IMPORTANT: Only consider ERG/token pools, not token/token pools
       for (const pool of pools) {
-        // Pools have x (ERG side) and y (token side) with reserves
-        const ergReserve = pool.lockedX?.amount || pool.x?.amount || 0;
-        const tokenReserve = pool.lockedY?.amount || pool.y?.amount || 0;
-        const tokenId = pool.lockedY?.id || pool.y?.id;
-        const tokenDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
+        // Get the X side (should be ERG for us to use it)
+        const xId = pool.lockedX?.id || pool.x?.id;
+        const xAmount = pool.lockedX?.amount || pool.x?.amount || 0;
+        const xTicker = pool.lockedX?.ticker || pool.x?.ticker || '';
+
+        // Get the Y side (the token we want to price)
+        const yId = pool.lockedY?.id || pool.y?.id;
+        const yAmount = pool.lockedY?.amount || pool.y?.amount || 0;
+        const yDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
+
+        // ONLY use pools where X is ERG (native token)
+        const isErgPool = xId === ERG_TOKEN_ID || xTicker === 'ERG';
 
         // Debug: Log all pools for problem tokens
-        if (tokenId && DEBUG_TOKENS.includes(tokenId)) {
-          console.log(`[DEBUG POOL] ${tokenId.slice(0, 8)}:`, {
-            ergReserve,
-            tokenReserve,
-            tokenDecimals,
+        if (yId && DEBUG_TOKENS.includes(yId)) {
+          console.log(`[DEBUG POOL] ${yId.slice(0, 8)}:`, {
+            xId: xId?.slice(0, 8),
+            xTicker,
+            xAmount,
+            yAmount,
+            yDecimals,
+            isErgPool,
             poolId: pool.id,
-            fullPool: JSON.stringify(pool).slice(0, 500)
           });
         }
 
-        if (tokenId && ergReserve > 0 && tokenReserve > 0 && tokenIds.includes(tokenId)) {
+        // Skip non-ERG pools
+        if (!isErgPool) {
+          continue;
+        }
+
+        if (yId && xAmount > 0 && yAmount > 0 && tokenIds.includes(yId)) {
           // Calculate liquidity value in ERG (TVL proxy)
           const ergDecimals = 9;
-          const liquidity = ergReserve / Math.pow(10, ergDecimals);
+          const liquidity = xAmount / Math.pow(10, ergDecimals);
 
           // Only update if this pool has more liquidity than previous best
-          const currentBest = bestPoolLiquidity.get(tokenId) || 0;
+          const currentBest = bestPoolLiquidity.get(yId) || 0;
           if (liquidity > currentBest) {
-            bestPoolLiquidity.set(tokenId, liquidity);
+            bestPoolLiquidity.set(yId, liquidity);
 
             // Price = ERG reserve / token reserve (adjusted for decimals)
-            const price = (ergReserve / Math.pow(10, ergDecimals)) /
-                          (tokenReserve / Math.pow(10, tokenDecimals));
-            priceMap.set(tokenId, price);
+            const price = (xAmount / Math.pow(10, ergDecimals)) /
+                          (yAmount / Math.pow(10, yDecimals));
+            priceMap.set(yId, price);
 
             // Debug: Extra logging for problem tokens
-            if (DEBUG_TOKENS.includes(tokenId)) {
-              console.log(`[DEBUG PRICE] ${tokenId.slice(0, 8)}:`, {
-                ergReserveERG: ergReserve / Math.pow(10, ergDecimals),
-                tokenReserveAdj: tokenReserve / Math.pow(10, tokenDecimals),
+            if (DEBUG_TOKENS.includes(yId)) {
+              console.log(`[DEBUG PRICE] ${yId.slice(0, 8)}:`, {
+                ergReserveERG: xAmount / Math.pow(10, ergDecimals),
+                tokenReserveAdj: yAmount / Math.pow(10, yDecimals),
                 calculatedPrice: price,
                 liquidity
               });
             }
 
-            console.log(`Pool price for ${tokenId.slice(0,8)}...: ${price.toFixed(6)} ERG (liquidity: ${liquidity.toFixed(2)} ERG)`);
+            console.log(`Pool price for ${yId.slice(0,8)}...: ${price.toFixed(6)} ERG (liquidity: ${liquidity.toFixed(2)} ERG)`);
           }
         }
       }
