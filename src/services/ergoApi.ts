@@ -530,9 +530,20 @@ class ErgoApiService {
       // Each position has: tokenId, amount, price (current price in ERG)
       const positions = Array.isArray(data) ? data : data.positions || data.data || [];
 
+      // Debug tokens we're investigating
+      const DEBUG_TOKENS = [
+        '0779ec04f2fae64e87418a1ad917639d4668f78484f45df962b0dec14a2591d2', // Mi Goreng
+        'b0b312cde931c8bbdac0dac5bfd8e2c03bf4611275dc967988c8d15bd5ec20e0', // Bober
+      ];
+
       for (const position of positions) {
         // Try different field names for token ID (Crux uses 'id' or 'token_id')
         const tokenId = position.tokenId || position.token_id || position.id;
+
+        // Debug: Log full position object for problem tokens
+        if (tokenId && DEBUG_TOKENS.includes(tokenId)) {
+          console.log(`[DEBUG] Full position object for ${tokenId.slice(0, 8)}:`, JSON.stringify(position, null, 2));
+        }
 
         // Get the amount for this position (needed to calculate price from total value)
         const amount = position.amount || position.tokenAmount || 0;
@@ -541,28 +552,40 @@ class ErgoApiService {
         // NOTE: value_in_erg is TOTAL VALUE (amount * price), not per-token price!
         // Crux API uses: price_erg, priceInfo.erg, price.erg for per-token price
         let price = 0;
+        let priceSource = '';
 
         // First, try direct price per token fields
         if (position.price_erg !== undefined && position.price_erg > 0) {
           price = position.price_erg;
+          priceSource = 'price_erg';
         } else if (position.priceInfo?.erg !== undefined && position.priceInfo.erg > 0) {
           price = position.priceInfo.erg;
+          priceSource = 'priceInfo.erg';
         } else if (position.price?.erg !== undefined && position.price.erg > 0) {
           price = position.price.erg;
+          priceSource = 'price.erg';
         } else if (position.currentPrice !== undefined && position.currentPrice > 0) {
           price = position.currentPrice;
+          priceSource = 'currentPrice';
         } else if (typeof position.price === 'number' && position.price > 0) {
           price = position.price;
+          priceSource = 'price (number)';
         }
         // If we have value_in_erg (total value) and amount, calculate per-token price
         else if (position.value_in_erg !== undefined && amount > 0) {
           price = position.value_in_erg / amount;
+          priceSource = `value_in_erg/${amount}`;
           console.log(`Calculated price from value_in_erg: ${position.value_in_erg} / ${amount} = ${price}`);
+        }
+
+        // Debug: Log price source for problem tokens
+        if (tokenId && DEBUG_TOKENS.includes(tokenId)) {
+          console.log(`[DEBUG] ${tokenId.slice(0, 8)}: price=${price}, source=${priceSource}, amount=${amount}`);
         }
 
         if (tokenId && price > 0) {
           priceMap.set(tokenId, parseFloat(String(price)));
-          console.log(`Token ${tokenId.slice(0,8)}... price: ${price.toFixed(6)} ERG`);
+          console.log(`Token ${tokenId.slice(0,8)}... price: ${price.toFixed(6)} ERG (source: ${priceSource})`);
         }
       }
     } catch (err) {
@@ -596,7 +619,13 @@ class ErgoApiService {
       }
 
       const pools = await response.json();
-      console.log('Spectrum pools response:', JSON.stringify(pools).slice(0, 500));
+      console.log('Spectrum pools count:', pools?.length || 0);
+
+      // Debug tokens we're investigating
+      const DEBUG_TOKENS = [
+        '0779ec04f2fae64e87418a1ad917639d4668f78484f45df962b0dec14a2591d2', // Mi Goreng
+        'b0b312cde931c8bbdac0dac5bfd8e2c03bf4611275dc967988c8d15bd5ec20e0', // Bober
+      ];
 
       // Process pools to extract token prices - use pool with largest liquidity
       for (const pool of pools) {
@@ -604,6 +633,18 @@ class ErgoApiService {
         const ergReserve = pool.lockedX?.amount || pool.x?.amount || 0;
         const tokenReserve = pool.lockedY?.amount || pool.y?.amount || 0;
         const tokenId = pool.lockedY?.id || pool.y?.id;
+        const tokenDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
+
+        // Debug: Log all pools for problem tokens
+        if (tokenId && DEBUG_TOKENS.includes(tokenId)) {
+          console.log(`[DEBUG POOL] ${tokenId.slice(0, 8)}:`, {
+            ergReserve,
+            tokenReserve,
+            tokenDecimals,
+            poolId: pool.id,
+            fullPool: JSON.stringify(pool).slice(0, 500)
+          });
+        }
 
         if (tokenId && ergReserve > 0 && tokenReserve > 0 && tokenIds.includes(tokenId)) {
           // Calculate liquidity value in ERG (TVL proxy)
@@ -616,10 +657,20 @@ class ErgoApiService {
             bestPoolLiquidity.set(tokenId, liquidity);
 
             // Price = ERG reserve / token reserve (adjusted for decimals)
-            const tokenDecimals = pool.lockedY?.decimals || pool.y?.decimals || 0;
             const price = (ergReserve / Math.pow(10, ergDecimals)) /
                           (tokenReserve / Math.pow(10, tokenDecimals));
             priceMap.set(tokenId, price);
+
+            // Debug: Extra logging for problem tokens
+            if (DEBUG_TOKENS.includes(tokenId)) {
+              console.log(`[DEBUG PRICE] ${tokenId.slice(0, 8)}:`, {
+                ergReserveERG: ergReserve / Math.pow(10, ergDecimals),
+                tokenReserveAdj: tokenReserve / Math.pow(10, tokenDecimals),
+                calculatedPrice: price,
+                liquidity
+              });
+            }
+
             console.log(`Pool price for ${tokenId.slice(0,8)}...: ${price.toFixed(6)} ERG (liquidity: ${liquidity.toFixed(2)} ERG)`);
           }
         }
