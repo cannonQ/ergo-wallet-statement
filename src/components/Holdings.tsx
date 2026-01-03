@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import type { Holding } from '../types';
 import { ergoApi, LpPairInfo, HistoricalPriceData } from '../services/ergoApi';
 import { getCategoryColor, formatNumber } from '../constants';
@@ -33,6 +33,20 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
     changes: new Map(),
     loading: false,
   });
+  const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
+
+  // Copy token ID to clipboard
+  const copyTokenId = async (tokenId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(tokenId);
+      setCopiedTokenId(tokenId);
+      setTimeout(() => setCopiedTokenId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy token ID:', err);
+    }
+  };
 
   // Determine if we can show current prices (only for current month)
   const showCurrentPrices = isCurrentMonth(selectedMonth);
@@ -280,21 +294,7 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
                             )}
                             <span className="text-gray-400 ml-1">LP</span>
                           </span>
-                          <a
-                            href={`https://ergexplorer.com/token#${holding.tokenId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-500 hover:text-blue-400 text-xs"
-                            title={holding.tokenId}
-                          >
-                            ({shortTokenId}...)
-                          </a>
-                        </>
-                      ) : (
-                        // Regular token
-                        <>
-                          <span title={holding.token} className="font-medium">{displayName}</span>
-                          {shortTokenId && (
+                          <span className="flex items-center gap-1">
                             <a
                               href={`https://ergexplorer.com/token#${holding.tokenId}`}
                               target="_blank"
@@ -304,6 +304,46 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
                             >
                               ({shortTokenId}...)
                             </a>
+                            <button
+                              onClick={(e) => copyTokenId(holding.tokenId, e)}
+                              className="text-gray-500 hover:text-blue-400 p-0.5"
+                              title="Copy token ID"
+                            >
+                              {copiedTokenId === holding.tokenId ? (
+                                <Check size={12} className="text-green-400" />
+                              ) : (
+                                <Copy size={12} />
+                              )}
+                            </button>
+                          </span>
+                        </>
+                      ) : (
+                        // Regular token
+                        <>
+                          <span title={holding.token} className="font-medium">{displayName}</span>
+                          {shortTokenId && (
+                            <span className="flex items-center gap-1">
+                              <a
+                                href={`https://ergexplorer.com/token#${holding.tokenId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-500 hover:text-blue-400 text-xs"
+                                title={holding.tokenId}
+                              >
+                                ({shortTokenId}...)
+                              </a>
+                              <button
+                                onClick={(e) => copyTokenId(holding.tokenId, e)}
+                                className="text-gray-500 hover:text-blue-400 p-0.5"
+                                title="Copy token ID"
+                              >
+                                {copiedTokenId === holding.tokenId ? (
+                                  <Check size={12} className="text-green-400" />
+                                ) : (
+                                  <Copy size={12} />
+                                )}
+                              </button>
+                            </span>
                           )}
                         </>
                       )}
