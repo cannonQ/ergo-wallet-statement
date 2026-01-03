@@ -531,15 +531,28 @@ class ErgoApiService {
       const positions = Array.isArray(data) ? data : data.positions || data.data || [];
 
       for (const position of positions) {
-        // Try different field names for token ID and price
+        // Try different field names for token ID (Crux uses 'id' or 'token_id')
         const tokenId = position.tokenId || position.token_id || position.id;
-        // Price might be nested in priceInfo object or at top level
-        const priceInfo = position.priceInfo || position.price_info || position;
-        const price = priceInfo.price || priceInfo.currentPrice || priceInfo.ergPrice ||
-                      position.price || position.currentPrice || position.ergPrice || 0;
+
+        // Try different field names for price in ERG
+        // Crux API uses: price_erg, priceInfo.erg, price.erg, or value_in_erg
+        let price = 0;
+        if (position.price_erg !== undefined) {
+          price = position.price_erg;
+        } else if (position.priceInfo?.erg !== undefined) {
+          price = position.priceInfo.erg;
+        } else if (position.price?.erg !== undefined) {
+          price = position.price.erg;
+        } else if (position.value_in_erg !== undefined) {
+          price = position.value_in_erg;
+        } else if (position.currentPrice !== undefined) {
+          price = position.currentPrice;
+        } else if (typeof position.price === 'number') {
+          price = position.price;
+        }
 
         if (tokenId && price > 0) {
-          priceMap.set(tokenId, parseFloat(price));
+          priceMap.set(tokenId, parseFloat(String(price)));
           console.log(`Token ${tokenId.slice(0,8)}... price: ${price} ERG`);
         }
       }
@@ -598,6 +611,32 @@ class ErgoApiService {
   }
 
   /**
+   * Known stable token IDs and their approximate ERG prices
+   * Used as fallback when APIs are unavailable
+   */
+  getKnownTokenPrices(): Map<string, number> {
+    const priceMap = new Map<string, number>();
+
+    // SigUSD - stable at ~$1, so price depends on ERG price
+    // Using approximate 1 ERG = $0.80 means 1 SigUSD = 1.25 ERG
+    priceMap.set('03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04', 1.25);
+
+    // SigRSV - reserve token, variable price but typically 0.001-0.01 ERG
+    priceMap.set('003bd19d0187117f130b62e1bcab0939929ff5c7709f843c5c4dd158949285d0', 0.003);
+
+    // NETA - community token
+    priceMap.set('472c3d4ecaa08fb7392ff041ee2e6af75f4a558810a74b28600549d5392810e8', 0.0001);
+
+    // Ergopad - launchpad token
+    priceMap.set('d71693c49a84fbbecd4908c94813b46514b18b67a99952dc1e6e4791556de413', 0.02);
+
+    // COMET
+    priceMap.set('0cd8c9f416e5b1ca9f986a7f10a84191dfb85941619e49e53c0dc30ebf83324b', 0.0001);
+
+    return priceMap;
+  }
+
+  /**
    * Get token prices from Crux Finance API (uses Spectrum data)
    * Returns a map of tokenId -> price in ERG
    */
@@ -616,6 +655,19 @@ class ErgoApiService {
     if (poolPrices.size > 0) {
       console.log(`Got ${poolPrices.size} prices from Spectrum pools`);
       return poolPrices;
+    }
+
+    // Last resort: use known token prices for common tokens
+    const knownPrices = this.getKnownTokenPrices();
+    const matchedPrices = new Map<string, number>();
+    for (const tokenId of tokenIds) {
+      if (knownPrices.has(tokenId)) {
+        matchedPrices.set(tokenId, knownPrices.get(tokenId)!);
+      }
+    }
+    if (matchedPrices.size > 0) {
+      console.log(`Using ${matchedPrices.size} known token prices as fallback`);
+      return matchedPrices;
     }
 
     console.log('No prices available from external APIs');
