@@ -1007,9 +1007,9 @@ class ErgoApiService {
     const allNFTTokens = [...classicNFTs, ...multiCopyNFTs];
     console.log(`NFT Gallery: ${classicNFTs.length} classic NFTs + ${multiCopyNFTs.length} multi-copy NFTs = ${allNFTTokens.length} total`);
 
-    // Fetch info for first 20 NFTs for performance (full list count shown in UI)
+    // Fetch info for all NFTs (pagination handled in UI)
     const nfts = await Promise.all(
-      allNFTTokens.slice(0, 20).map(async (token) => {
+      allNFTTokens.map(async (token) => {
         const [info, artworkUrl, eip4AssetType] = await Promise.all([
           this.getTokenInfo(token.tokenId),
           this.getTokenArtworkUrl(token.tokenId),
