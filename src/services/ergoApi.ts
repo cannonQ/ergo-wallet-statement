@@ -131,6 +131,16 @@ export interface HistoricalPriceData {
   priceInUsd: number;
 }
 
+// EIP-4 asset type codes (R7 register values)
+// Reference: https://github.com/ergoplatform/eips/blob/master/eip-0004.md
+export const EIP4_ASSET_TYPES = {
+  NFT_PICTURE: '0e020101',
+  NFT_AUDIO: '0e020102',
+  NFT_VIDEO: '0e020103',
+} as const;
+
+export type Eip4AssetType = 'picture' | 'audio' | 'video' | null;
+
 class ErgoApiService {
   private baseUrl: string;
   private currentHeight: number | null = null;
@@ -765,6 +775,58 @@ class ErgoApiService {
   }
 
   /**
+   * Check if a token is an EIP-4 artwork type by examining the R7 register
+   * R7 contains asset type for EIP-4 tokens:
+   * - 0e020101 = NFT picture
+   * - 0e020102 = NFT audio
+   * - 0e020103 = NFT video
+   * Returns the asset type or null if not an EIP-4 artwork
+   */
+  async getTokenEip4AssetType(tokenId: string): Promise<Eip4AssetType> {
+    try {
+      // First, get token info to find the actual issuance box ID
+      const tokenInfo = await this.getTokenInfo(tokenId);
+      if (!tokenInfo?.boxId) {
+        return null;
+      }
+
+      // Fetch the issuance box (which contains R7)
+      const box = await this.getTokenIssuanceBox(tokenInfo.boxId);
+      if (!box?.additionalRegisters?.R7) {
+        return null;
+      }
+
+      const r7Value = box.additionalRegisters.R7;
+
+      // R7 might be a string (serialized hex) or an object
+      let hexValue: string | null = null;
+      if (typeof r7Value === 'string') {
+        hexValue = r7Value;
+      } else if (typeof r7Value === 'object' && r7Value !== null) {
+        hexValue = r7Value.serializedValue || null;
+      }
+
+      if (!hexValue) {
+        return null;
+      }
+
+      // Check for EIP-4 asset type codes
+      if (hexValue === EIP4_ASSET_TYPES.NFT_PICTURE) {
+        return 'picture';
+      } else if (hexValue === EIP4_ASSET_TYPES.NFT_AUDIO) {
+        return 'audio';
+      } else if (hexValue === EIP4_ASSET_TYPES.NFT_VIDEO) {
+        return 'video';
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Error checking R7 for token ${tokenId.slice(0, 8)}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Get artwork URL from token's issuance box R9 register
    * Note: The issuance box ID comes from token info, not the token ID itself
    */
@@ -818,13 +880,23 @@ class ErgoApiService {
   /**
    * Convert IPFS URL or CID to gateway URL
    * Using ipfs.io gateway as it's the most stable
-   * Handles: ipfs:// URLs, raw CIDv0 (Qm...), raw CIDv1 (bafy...)
+   * Handles: ipfs:// URLs, raw CIDv0 (Qm...), raw CIDv1 (bafy...), http URLs
    */
   ipfsToGatewayUrl(url: string): string {
     if (!url) return url;
 
-    // Already a full URL (http/https)
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    // Upgrade http to https for ipfs.io URLs
+    if (url.startsWith('http://ipfs.io')) {
+      return url.replace('http://', 'https://');
+    }
+
+    // Already a full HTTPS URL
+    if (url.startsWith('https://')) {
+      return url;
+    }
+
+    // http URLs (non-ipfs) - return as-is, browser will handle
+    if (url.startsWith('http://')) {
       return url;
     }
 
@@ -850,6 +922,7 @@ class ErgoApiService {
 
   /**
    * Identify NFTs from token list (tokens with amount = 1 and no decimals)
+   * Uses R7 register (EIP-4) for accurate type detection when available
    */
   async getNFTs(tokens: TokenBalance[]): Promise<Array<{
     tokenId: string;
@@ -864,23 +937,37 @@ class ErgoApiService {
     // Fetch info for each potential NFT
     const nfts = await Promise.all(
       potentialNFTs.slice(0, 20).map(async (token) => {
-        const [info, artworkUrl] = await Promise.all([
+        const [info, artworkUrl, eip4AssetType] = await Promise.all([
           this.getTokenInfo(token.tokenId),
           this.getTokenArtworkUrl(token.tokenId),
+          this.getTokenEip4AssetType(token.tokenId),
         ]);
         if (!info) return null;
 
-        // Determine type based on name or description
+        // Determine type - prefer R7 (EIP-4) if available, fallback to name/description
         let type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection' = 'NFT';
-        const nameLower = (info.name || '').toLowerCase();
-        const descLower = (info.description || '').toLowerCase();
 
-        if (nameLower.includes('audio') || descLower.includes('audio') || descLower.includes('music')) {
-          type = 'Audio';
-        } else if (nameLower.includes('video') || descLower.includes('video')) {
-          type = 'Video';
-        } else if (nameLower.includes('collection') || descLower.includes('collection')) {
-          type = 'Artwork Collection';
+        if (eip4AssetType) {
+          // Use EIP-4 R7 register for accurate type
+          if (eip4AssetType === 'audio') {
+            type = 'Audio';
+          } else if (eip4AssetType === 'video') {
+            type = 'Video';
+          } else {
+            type = 'NFT'; // picture
+          }
+        } else {
+          // Fallback: Determine type based on name or description
+          const nameLower = (info.name || '').toLowerCase();
+          const descLower = (info.description || '').toLowerCase();
+
+          if (nameLower.includes('audio') || descLower.includes('audio') || descLower.includes('music')) {
+            type = 'Audio';
+          } else if (nameLower.includes('video') || descLower.includes('video')) {
+            type = 'Video';
+          } else if (nameLower.includes('collection') || descLower.includes('collection')) {
+            type = 'Artwork Collection';
+          }
         }
 
         return {
@@ -1582,6 +1669,7 @@ class ErgoApiService {
 
   /**
    * Get full balance with tokens and their ERG values
+   * Marks EIP-4 artwork tokens so they can be filtered from Holdings
    */
   async getFullBalanceWithPrices(address: string): Promise<{
     ergBalance: number;
@@ -1591,36 +1679,71 @@ class ErgoApiService {
       amount: number;
       decimals: number;
       valueInErg: number;
+      isArtwork: boolean;
     }>;
   }> {
     // Fetch balance first
     const balance = await this.getAddressBalance(address);
 
-    // Extract token IDs and fetch prices (pass address for Crux positions endpoint)
-    const tokenIds = balance.tokens.map(t => t.tokenId);
-    const priceMap = await this.getTokenPrices(tokenIds, address);
+    // Identify potential NFTs (amount = 1, decimals = 0) to check R7
+    const potentialNftIds = balance.tokens
+      .filter(t => t.amount === 1 && t.decimals === 0)
+      .map(t => t.tokenId);
+
+    // Check R7 for potential NFTs to identify EIP-4 artwork tokens
+    // This runs in parallel to identify artwork before price fetching
+    const artworkSet = new Set<string>();
+    if (potentialNftIds.length > 0) {
+      console.log(`Checking R7 for ${potentialNftIds.length} potential NFTs...`);
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < potentialNftIds.length; i += BATCH_SIZE) {
+        const batch = potentialNftIds.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async tokenId => {
+            const assetType = await this.getTokenEip4AssetType(tokenId);
+            return { tokenId, isArtwork: assetType !== null };
+          })
+        );
+        for (const { tokenId, isArtwork } of results) {
+          if (isArtwork) {
+            artworkSet.add(tokenId);
+          }
+        }
+      }
+      console.log(`Found ${artworkSet.size} EIP-4 artwork tokens`);
+    }
+
+    // Extract token IDs for price fetching, excluding artwork tokens
+    const tokenIdsForPricing = balance.tokens
+      .filter(t => !artworkSet.has(t.tokenId))
+      .map(t => t.tokenId);
+    const priceMap = await this.getTokenPrices(tokenIdsForPricing, address);
 
     // Pre-fetch pool cache for LP token value calculation
     const poolCache = await this.getSpectrumPoolCache();
 
     console.log('Price map size:', priceMap.size);
-    console.log('Token IDs:', tokenIds.slice(0, 5));
+    console.log('Token IDs:', tokenIdsForPricing.slice(0, 5));
 
     // Process tokens, calculating LP values separately
     const tokensWithValues = await Promise.all(balance.tokens.map(async t => {
       const amount = t.decimals > 0 ? t.amount / Math.pow(10, t.decimals) : t.amount;
+      const isArtwork = artworkSet.has(t.tokenId);
       let valueInErg = 0;
 
-      // Check if this is an LP token
-      const poolInfo = poolCache.get(t.tokenId);
-      if (poolInfo) {
-        // This is an LP token - calculate value from pool TVL
-        valueInErg = await this.getLpTokenValue(t.tokenId, amount);
-        console.log(`LP token ${t.name || t.tokenId.slice(0,8)}: amount=${amount}, value=${valueInErg} ERG`);
-      } else {
-        // Regular token - use price from priceMap
-        const priceInErg = priceMap.get(t.tokenId) || 0;
-        valueInErg = amount * priceInErg;
+      // Skip value calculation for artwork tokens
+      if (!isArtwork) {
+        // Check if this is an LP token
+        const poolInfo = poolCache.get(t.tokenId);
+        if (poolInfo) {
+          // This is an LP token - calculate value from pool TVL
+          valueInErg = await this.getLpTokenValue(t.tokenId, amount);
+          console.log(`LP token ${t.name || t.tokenId.slice(0,8)}: amount=${amount}, value=${valueInErg} ERG`);
+        } else {
+          // Regular token - use price from priceMap
+          const priceInErg = priceMap.get(t.tokenId) || 0;
+          valueInErg = amount * priceInErg;
+        }
       }
 
       return {
@@ -1629,6 +1752,7 @@ class ErgoApiService {
         amount,
         decimals: t.decimals,
         valueInErg,
+        isArtwork,
       };
     }));
 

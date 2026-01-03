@@ -19,6 +19,7 @@ interface Token {
   amount: number;
   decimals: number;
   valueInErg: number;
+  isArtwork: boolean;
 }
 
 interface Transaction {
@@ -283,26 +284,29 @@ function App() {
       endingBalance: selectedMonthBalance,
     },
     // Token holdings with ERG values from Crux Finance prices (current values)
-    ...tokens.map(token => {
-      // Get movement for this token, adjusting for decimals
-      const rawMovement = tokenMovements.get(token.tokenId) || { additions: 0, reductions: 0 };
-      const divisor = token.decimals > 0 ? Math.pow(10, token.decimals) : 1;
-      const additions = rawMovement.additions / divisor;
-      const reductions = rawMovement.reductions / divisor;
+    // Filter out EIP-4 artwork tokens - they should only appear in NFT Gallery
+    ...tokens
+      .filter(token => !token.isArtwork)
+      .map(token => {
+        // Get movement for this token, adjusting for decimals
+        const rawMovement = tokenMovements.get(token.tokenId) || { additions: 0, reductions: 0 };
+        const divisor = token.decimals > 0 ? Math.pow(10, token.decimals) : 1;
+        const additions = rawMovement.additions / divisor;
+        const reductions = rawMovement.reductions / divisor;
 
-      return {
-        token: token.name,
-        tokenId: token.tokenId,
-        amount: token.amount,
-        valueInErg: token.valueInErg, // ERG equivalent from Crux prices
-        change24h: 0,
-        category: categorizeToken(token.name),
-        beginningBalance: token.amount - additions + reductions,
-        additions,
-        reductions,
-        endingBalance: token.amount,
-      };
-    }),
+        return {
+          token: token.name,
+          tokenId: token.tokenId,
+          amount: token.amount,
+          valueInErg: token.valueInErg, // ERG equivalent from Crux prices
+          change24h: 0,
+          category: categorizeToken(token.name),
+          beginningBalance: token.amount - additions + reductions,
+          additions,
+          reductions,
+          endingBalance: token.amount,
+        };
+      }),
   ] : [];
 
   // Calculate current values by category
