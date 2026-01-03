@@ -1,12 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
-import { TokenList } from './components/TokenList';
+import { Chart } from './components/Chart';
+import { PieChart } from './components/PieChart';
+import { WalletSummary } from './components/WalletSummary';
+import { Holdings } from './components/Holdings';
 import { TransactionHistory } from './components/TransactionHistory';
 import { DemurrageAlert } from './components/DemurrageAlert';
 import { NFTGallery } from './components/NFTGallery';
 import { AlertSystem } from './components/AlertSystem';
-import { ergoApi, TokenBalance } from './services/ergoApi';
-import type { Alert } from './types';
+import { ergoApi } from './services/ergoApi';
+import type { Alert, Holding } from './types';
 
 interface Token {
   tokenId: string;
@@ -37,6 +40,15 @@ interface NFT {
   description: string;
   type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection';
 }
+
+// Categorize tokens based on known token names
+const categorizeToken = (name: string): Holding['category'] => {
+  const nameLower = name.toLowerCase();
+  if (nameLower === 'erg') return 'ERG';
+  if (nameLower.includes('sigusd') || nameLower.includes('sigrsv') || nameLower.includes('stable') || nameLower.includes('gold')) return 'Stables';
+  if (nameLower.includes('lp') || nameLower.includes('liquidity') || nameLower.includes('lending')) return 'Liquidity/Lending';
+  return 'Tokens';
+};
 
 function App() {
   // Wallet state
@@ -157,6 +169,51 @@ function App() {
     setNotificationsEnabled(!notificationsEnabled);
   };
 
+  // Convert tokens to Holdings format for the original components
+  const holdings: Holding[] = balance !== null ? [
+    // ERG holding
+    {
+      token: 'ERG',
+      amount: balance,
+      valueInErg: balance,
+      change24h: 0,
+      category: 'ERG' as const,
+      beginningBalance: balance,
+      additions: 0,
+      reductions: 0,
+      endingBalance: balance,
+    },
+    // Token holdings
+    ...tokens.map(token => ({
+      token: token.name,
+      amount: token.amount,
+      valueInErg: 0, // Would need price API
+      change24h: 0,
+      category: categorizeToken(token.name),
+      beginningBalance: token.amount,
+      additions: 0,
+      reductions: 0,
+      endingBalance: token.amount,
+    })),
+  ] : [];
+
+  // Chart data - show balance (simplified since we don't have historical data)
+  const chartData = {
+    labels: balance !== null ? ['Current Balance'] : [],
+    values: balance !== null ? [balance] : [],
+  };
+
+  // Pie chart data - distribution by category
+  const pieData = {
+    labels: ['ERG', 'Stables', 'Tokens', 'LP Tokens'],
+    values: [
+      holdings.filter(h => h.category === 'ERG').reduce((sum, h) => sum + h.valueInErg, 0),
+      holdings.filter(h => h.category === 'Stables').reduce((sum, h) => sum + h.valueInErg, 0),
+      holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0),
+      holdings.filter(h => h.category === 'Liquidity/Lending').reduce((sum, h) => sum + h.valueInErg, 0),
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-gray-800 text-white p-6">
       <Header
@@ -187,23 +244,36 @@ function App() {
       )}
 
       {address && balance !== null && !isLoading && (
-        <div className="space-y-6">
-          {/* Top row: Token balances and Demurrage alerts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <TokenList tokens={tokens} ergBalance={balance} />
+        <>
+          {/* Charts row */}
+          <div className="grid md:grid-cols-[60%_40%] gap-4 mb-6">
+            <Chart data={chartData} />
+            <PieChart data={pieData} />
+          </div>
+
+          {/* Summary and Demurrage row */}
+          <div className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-4 mb-6">
+            <WalletSummary holdings={holdings} />
             <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
           </div>
 
-          {/* Transaction history */}
-          <TransactionHistory
-            transactions={transactions}
-            total={totalTransactions}
-            isLoading={loadingTransactions}
-          />
+          {/* Holdings table */}
+          <div className="mb-6">
+            <Holdings holdings={holdings} />
+          </div>
+
+          {/* Transaction History */}
+          <div className="mb-6">
+            <TransactionHistory
+              transactions={transactions}
+              total={totalTransactions}
+              isLoading={loadingTransactions}
+            />
+          </div>
 
           {/* NFT Gallery */}
           <NFTGallery nfts={nfts} isLoading={loadingNFTs} />
-        </div>
+        </>
       )}
 
       {error && !isLoading && (
