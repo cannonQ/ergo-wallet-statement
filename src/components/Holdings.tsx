@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Holding } from '../types';
 import { ergoApi, LpPairInfo } from '../services/ergoApi';
+import { getCategoryColor, formatNumber } from '../constants';
 
 interface HoldingsProps {
   holdings: Holding[];
@@ -11,7 +12,7 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof Holding>('valueInErg');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ERG');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [lpPairInfoMap, setLpPairInfoMap] = useState<Map<string, LpPairInfo>>(new Map());
 
   // Fetch LP pair info for LP/Lending tokens
@@ -39,6 +40,20 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
   }, [holdings]);
 
   const categories = ['ERG', 'Stables', 'Tokens', 'Liquidity/Lending'];
+
+  // Get button style based on category and selection state
+  const getButtonStyle = (category: string | null, isSelected: boolean) => {
+    if (category === null) {
+      // "All" button
+      return isSelected
+        ? 'bg-gray-600 text-white'
+        : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700';
+    }
+    const colorConfig = getCategoryColor(category);
+    return isSelected
+      ? `text-white`
+      : `bg-gray-800/50 text-gray-400 hover:bg-gray-700`;
+  };
 
   const filteredHoldings = holdings
     .filter(holding => 
@@ -69,28 +84,33 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
         <div className="flex items-center space-x-4">
           <div className="flex space-x-2">
             <button
-              className={`px-4 py-2 rounded-lg ${
+              className={`px-4 py-2 rounded-lg transition-colors ${
                 selectedCategory === 'All'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700'
               }`}
               onClick={() => setSelectedCategory('All')}
             >
               All
             </button>
-            {categories.map((category) => (
-              <button
-                key={category}
-                className={`px-4 py-2 rounded-lg ${
-                  selectedCategory === category
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
+            {categories.map((category) => {
+              const colorConfig = getCategoryColor(category);
+              const isSelected = selectedCategory === category;
+              return (
+                <button
+                  key={category}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    isSelected
+                      ? 'text-white'
+                      : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700'
+                  }`}
+                  style={isSelected ? { backgroundColor: colorConfig.primary } : undefined}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category === 'Liquidity/Lending' ? 'Liquidity' : category}
+                </button>
+              );
+            })}
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -225,11 +245,11 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
                       )}
                     </div>
                   </td>
-                  <td className="py-3 text-right text-white tabular-nums">{holding.beginningBalance.toFixed(2)}</td>
-                  <td className="py-3 text-right text-green-400 tabular-nums">+{holding.additions.toFixed(2)}</td>
-                  <td className="py-3 text-right text-red-400 tabular-nums">-{holding.reductions.toFixed(2)}</td>
-                  <td className="py-3 text-right text-white tabular-nums">{holding.endingBalance.toFixed(2)}</td>
-                  <td className="py-3 text-right text-white tabular-nums">{holding.valueInErg.toFixed(2)} ERG</td>
+                  <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.beginningBalance)}</td>
+                  <td className="py-3 text-right text-green-400 tabular-nums">+{formatNumber(holding.additions)}</td>
+                  <td className="py-3 text-right text-red-400 tabular-nums">-{formatNumber(holding.reductions)}</td>
+                  <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.endingBalance)}</td>
+                  <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.valueInErg)} ERG</td>
                   <td className={`py-3 text-right tabular-nums ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
                   </td>

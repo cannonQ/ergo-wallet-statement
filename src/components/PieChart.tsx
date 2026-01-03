@@ -6,6 +6,7 @@ import {
   Legend
 } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
+import { CATEGORY_COLORS, formatNumber } from '../constants';
 
 ChartJS.register(
   ArcElement,
@@ -20,24 +21,33 @@ interface PieChartProps {
   };
 }
 
+// Map pie chart labels to category keys
+const labelToCategoryKey: Record<string, keyof typeof CATEGORY_COLORS> = {
+  'ERG': 'ERG',
+  'Stables': 'Stables',
+  'Tokens': 'Tokens',
+  'LP Tokens': 'Liquidity/Lending',
+};
+
 export const PieChart: React.FC<PieChartProps> = ({ data }) => {
+  // Map labels to consistent colors
+  const backgroundColors = data.labels.map(label => {
+    const categoryKey = labelToCategoryKey[label] || 'Tokens';
+    return CATEGORY_COLORS[categoryKey].bg;
+  });
+
+  const borderColors = data.labels.map(label => {
+    const categoryKey = labelToCategoryKey[label] || 'Tokens';
+    return CATEGORY_COLORS[categoryKey].border;
+  });
+
   const chartData = {
     labels: data.labels,
     datasets: [
       {
         data: data.values,
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.6)',
-          'rgba(54, 162, 235, 0.6)',
-          'rgba(255, 206, 86, 0.6)',
-          'rgba(75, 192, 192, 0.6)',
-        ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-        ],
+        backgroundColor: backgroundColors,
+        borderColor: borderColors,
         borderWidth: 1,
       },
     ],
@@ -59,6 +69,16 @@ export const PieChart: React.FC<PieChartProps> = ({ data }) => {
         color: 'white',
         font: {
           size: 16,
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: (context: any) => {
+            const value = context.parsed;
+            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${context.label}: ${formatNumber(value)} ERG (${percentage}%)`;
+          },
         },
       },
     },
