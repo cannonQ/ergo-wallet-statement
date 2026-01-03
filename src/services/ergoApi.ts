@@ -932,7 +932,10 @@ class ErgoApiService {
   }
 
   /**
-   * Identify NFTs from token list (tokens with amount = 1 and no decimals)
+   * Identify NFTs from token list
+   * Includes:
+   * - Classic NFTs: amount = 1, decimals = 0
+   * - Multi-copy NFTs: decimals = 0, amount > 1, with EIP-4 R7 artwork type
    * Uses R7 register (EIP-4) for accurate type detection when available
    */
   async getNFTs(tokens: TokenBalance[]): Promise<Array<{
@@ -942,12 +945,39 @@ class ErgoApiService {
     type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection';
     artworkUrl: string | null;
   }>> {
-    // Filter potential NFTs (amount = 1, decimals = 0)
-    const potentialNFTs = tokens.filter(t => t.amount === 1 && t.decimals === 0);
+    // Classic NFTs (amount = 1, decimals = 0)
+    const classicNFTs = tokens.filter(t => t.amount === 1 && t.decimals === 0);
 
-    // Fetch info for each potential NFT
+    // Potential multi-copy NFTs (decimals = 0, amount > 1) - need to check R7
+    const potentialMultiCopy = tokens.filter(t => t.decimals === 0 && t.amount > 1);
+
+    // Check R7 for multi-copy tokens to find artwork types
+    const multiCopyNFTs: TokenBalance[] = [];
+    if (potentialMultiCopy.length > 0) {
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < potentialMultiCopy.length; i += BATCH_SIZE) {
+        const batch = potentialMultiCopy.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async t => {
+            const assetType = await this.getTokenEip4AssetType(t.tokenId);
+            return { token: t, isArtwork: assetType !== null };
+          })
+        );
+        for (const { token, isArtwork } of results) {
+          if (isArtwork) {
+            multiCopyNFTs.push(token);
+          }
+        }
+      }
+    }
+
+    // Combine classic and multi-copy NFTs
+    const allNFTTokens = [...classicNFTs, ...multiCopyNFTs];
+    console.log(`NFT Gallery: ${classicNFTs.length} classic NFTs + ${multiCopyNFTs.length} multi-copy NFTs = ${allNFTTokens.length} total`);
+
+    // Fetch info for each NFT (limit to 20 for performance)
     const nfts = await Promise.all(
-      potentialNFTs.slice(0, 20).map(async (token) => {
+      allNFTTokens.slice(0, 20).map(async (token) => {
         const [info, artworkUrl, eip4AssetType] = await Promise.all([
           this.getTokenInfo(token.tokenId),
           this.getTokenArtworkUrl(token.tokenId),
