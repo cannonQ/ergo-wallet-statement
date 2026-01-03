@@ -10,19 +10,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/react-datepicker": "^4.19.5",
+    "chart.js": "^4.4.1",
+    "date-fns": "^3.3.1",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "chart.js": "^4.4.1",
     "react-chartjs-2": "^5.2.0",
-    "date-fns": "^3.3.1",
     "react-datepicker": "^6.1.0",
-    "@types/react-datepicker": "^4.19.5"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@vercel/node": "^5.5.16",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.9.1",
@@ -39,7 +40,13 @@
     "diy": {
       "title": "Ergo Wallet Dashboard",
       "description": "A comprehensive Ergo wallet dashboard with real-time tracking, charts, and portfolio management",
-      "tags": ["react", "typescript", "tailwind", "chart.js", "ergo"],
+      "tags": [
+        "react",
+        "typescript",
+        "tailwind",
+        "chart.js",
+        "ergo"
+      ],
       "thumbnailUrl": "https://images.unsplash.com/photo-1557595071-0f23cd52b7b3?w=800"
     }
   }
