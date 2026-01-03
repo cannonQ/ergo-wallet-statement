@@ -6,6 +6,7 @@ interface NFT {
   name: string;
   description: string;
   type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection';
+  artworkUrl: string | null;
 }
 
 interface NFTGalleryProps {
@@ -14,12 +15,13 @@ interface NFTGalleryProps {
 }
 
 // Ergo Auctions CDN caches NFT images by tokenId
-const getArtworkUrl = (tokenId: string) =>
+const getErgoAuctionsCdnUrl = (tokenId: string) =>
   `https://ergoauctions.org/api/v1/artworkUrl/${tokenId}`;
 
 export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false }) => {
   const [selectedType, setSelectedType] = useState<string>('All');
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  // Track which image source to use: 0 = artworkUrl/IPFS, 1 = ErgoAuctions CDN, 2 = placeholder
+  const [imageFallbackLevel, setImageFallbackLevel] = useState<Map<string, number>>(new Map());
   const types = ['All', 'NFT', 'Audio', 'Video', 'Artwork Collection'];
 
   const openExplorer = (tokenId: string) => {
@@ -27,7 +29,27 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
   };
 
   const handleImageError = (tokenId: string) => {
-    setFailedImages(prev => new Set(prev).add(tokenId));
+    setImageFallbackLevel(prev => {
+      const newMap = new Map(prev);
+      const currentLevel = newMap.get(tokenId) || 0;
+      newMap.set(tokenId, currentLevel + 1);
+      return newMap;
+    });
+  };
+
+  // Get the image URL based on fallback level
+  const getImageUrl = (nft: NFT): string | null => {
+    const level = imageFallbackLevel.get(nft.tokenId) || 0;
+
+    if (level === 0 && nft.artworkUrl) {
+      // Try IPFS/direct URL from register first
+      return nft.artworkUrl;
+    } else if (level <= 1) {
+      // Fall back to Ergo Auctions CDN
+      return getErgoAuctionsCdnUrl(nft.tokenId);
+    }
+    // All sources failed, show placeholder
+    return null;
   };
 
   const filteredNfts = selectedType === 'All'
@@ -123,18 +145,22 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
             className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
             onClick={() => openExplorer(nft.tokenId)}
           >
-            {/* Artwork image with fallback to placeholder */}
+            {/* Artwork image with fallback chain: IPFS -> ErgoAuctions CDN -> placeholder */}
             <div className={`aspect-square ${getTypeColor(nft.type)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
-              {!failedImages.has(nft.tokenId) ? (
-                <img
-                  src={getArtworkUrl(nft.tokenId)}
-                  alt={nft.name}
-                  className="w-full h-full object-cover"
-                  onError={() => handleImageError(nft.tokenId)}
-                />
-              ) : (
-                getIcon(nft.type)
-              )}
+              {(() => {
+                const imageUrl = getImageUrl(nft);
+                if (imageUrl) {
+                  return (
+                    <img
+                      src={imageUrl}
+                      alt={nft.name}
+                      className="w-full h-full object-cover"
+                      onError={() => handleImageError(nft.tokenId)}
+                    />
+                  );
+                }
+                return getIcon(nft.type);
+              })()}
             </div>
 
             {/* Info */}

@@ -40,6 +40,7 @@ interface NFT {
   name: string;
   description: string;
   type: 'NFT' | 'Audio' | 'Video' | 'Artwork Collection';
+  artworkUrl: string | null;
 }
 
 // Categorize tokens based on known token names
