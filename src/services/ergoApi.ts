@@ -752,14 +752,35 @@ class ErgoApiService {
   }
 
   /**
-   * Convert IPFS URL to gateway URL
+   * Convert IPFS URL or CID to gateway URL
    * Using ipfs.io gateway as it's the most stable
+   * Handles: ipfs:// URLs, raw CIDv0 (Qm...), raw CIDv1 (bafy...)
    */
   ipfsToGatewayUrl(url: string): string {
+    if (!url) return url;
+
+    // Already a full URL (http/https)
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    // ipfs:// protocol URL
     if (url.startsWith('ipfs://')) {
       const hash = url.replace('ipfs://', '');
       return `https://ipfs.io/ipfs/${hash}`;
     }
+
+    // Raw CIDv1 (starts with 'bafy' for base32)
+    if (url.startsWith('bafy')) {
+      return `https://ipfs.io/ipfs/${url}`;
+    }
+
+    // Raw CIDv0 (starts with 'Qm')
+    if (url.startsWith('Qm')) {
+      return `https://ipfs.io/ipfs/${url}`;
+    }
+
+    // Unknown format, return as-is
     return url;
   }
 
