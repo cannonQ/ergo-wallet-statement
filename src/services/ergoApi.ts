@@ -245,13 +245,15 @@ class ErgoApiService {
   }
 
   /**
-   * Get transactions for a specific month (with client-side filtering)
+   * Get transactions for a specific month using date-range API filtering
+   * Supports pagination with offset for "Load More" functionality
    */
   async getMonthTransactions(
     address: string,
     year: number,
     month: number, // 0-indexed (0 = January)
-    limit: number = 20
+    limit: number = 20,
+    offset: number = 0
   ): Promise<{
     transactions: Array<{
       id: string;
@@ -261,6 +263,7 @@ class ErgoApiService {
       status: 'confirmed';
     }>;
     total: number;
+    hasMore: boolean;
   }> {
     // Calculate month start and end timestamps
     const startDate = new Date(year, month, 1);
@@ -268,19 +271,19 @@ class ErgoApiService {
     const fromTimestamp = startDate.getTime();
     const toTimestamp = endDate.getTime();
 
-    // Fetch more transactions than limit to ensure we get enough for the month
-    // The API returns transactions sorted by timestamp descending
+    // Use API date-range filtering (more efficient than fetching all and filtering client-side)
     const response = await this.getAddressTransactions(address, {
-      limit: 100, // Fetch more to filter
-      offset: 0,
+      limit: limit + 1, // Fetch one extra to check if there are more
+      offset: offset,
+      fromTimestamp,
+      toTimestamp,
     });
 
-    // Filter transactions by timestamp (client-side filtering)
-    const filteredTxs = response.items.filter(tx => {
-      return tx.timestamp >= fromTimestamp && tx.timestamp <= toTimestamp;
-    });
+    // Check if there are more transactions beyond this page
+    const hasMore = response.items.length > limit;
+    const itemsToProcess = hasMore ? response.items.slice(0, limit) : response.items;
 
-    const transactions = filteredTxs.slice(0, limit).map(tx => {
+    const transactions = itemsToProcess.map(tx => {
       // Calculate net ERG change for this address
       const inputValue = tx.inputs
         .filter(input => input.address === address)
@@ -303,7 +306,8 @@ class ErgoApiService {
 
     return {
       transactions,
-      total: filteredTxs.length,
+      total: response.total, // API provides total count
+      hasMore,
     };
   }
 

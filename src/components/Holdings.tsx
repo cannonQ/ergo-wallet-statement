@@ -6,14 +6,25 @@ import { getCategoryColor, formatNumber } from '../constants';
 
 interface HoldingsProps {
   holdings: Holding[];
+  selectedMonth: Date;
 }
 
-export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
+// Check if the selected month is the current month
+const isCurrentMonth = (selectedMonth: Date): boolean => {
+  const now = new Date();
+  return selectedMonth.getFullYear() === now.getFullYear() &&
+         selectedMonth.getMonth() === now.getMonth();
+};
+
+export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) => {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof Holding>('valueInErg');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedCategory, setSelectedCategory] = useState<string>('ERG'); // Default to ERG
   const [lpPairInfoMap, setLpPairInfoMap] = useState<Map<string, LpPairInfo>>(new Map());
+
+  // Determine if we can show current prices (only for current month)
+  const showCurrentPrices = isCurrentMonth(selectedMonth);
 
   // Fetch LP pair info for LP/Lending tokens
   useEffect(() => {
@@ -246,9 +257,26 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings }) => {
                   <td className="py-3 text-right text-green-400 tabular-nums">+{formatNumber(holding.additions)}</td>
                   <td className="py-3 text-right text-red-400 tabular-nums">-{formatNumber(holding.reductions)}</td>
                   <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.endingBalance)}</td>
-                  <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.valueInErg)} ERG</td>
-                  <td className={`py-3 text-right tabular-nums ${holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
+                  <td className="py-3 text-right text-white tabular-nums">
+                    {showCurrentPrices ? (
+                      `${formatNumber(holding.valueInErg)} ERG`
+                    ) : (
+                      // TODO: Historical pricing - uncomment when API is available
+                      // `${formatNumber(holding.valueInErg)} ERG`
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </td>
+                  <td className={`py-3 text-right tabular-nums ${
+                    !showCurrentPrices ? 'text-gray-500' :
+                    holding.change24h >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {showCurrentPrices ? (
+                      `${holding.change24h >= 0 ? '+' : ''}${holding.change24h.toFixed(2)}%`
+                    ) : (
+                      // TODO: Historical pricing - uncomment when API is available
+                      // `${holding.change24h >= 0 ? '+' : ''}${holding.change24h.toFixed(2)}%`
+                      '-'
+                    )}
                   </td>
                 </tr>
               );
