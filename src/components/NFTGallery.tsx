@@ -13,12 +13,21 @@ interface NFTGalleryProps {
   isLoading?: boolean;
 }
 
+// Ergo Auctions CDN caches NFT images by tokenId
+const getArtworkUrl = (tokenId: string) =>
+  `https://ergoauctions.org/api/v1/artworkUrl/${tokenId}`;
+
 export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false }) => {
   const [selectedType, setSelectedType] = useState<string>('All');
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const types = ['All', 'NFT', 'Audio', 'Video', 'Artwork Collection'];
 
   const openExplorer = (tokenId: string) => {
     window.open(`https://ergexplorer.com/token#${tokenId}`, '_blank');
+  };
+
+  const handleImageError = (tokenId: string) => {
+    setFailedImages(prev => new Set(prev).add(tokenId));
   };
 
   const filteredNfts = selectedType === 'All'
@@ -114,9 +123,18 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
             className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
             onClick={() => openExplorer(nft.tokenId)}
           >
-            {/* Placeholder image area */}
-            <div className={`aspect-square ${getTypeColor(nft.type)} flex items-center justify-center text-white/80`}>
-              {getIcon(nft.type)}
+            {/* Artwork image with fallback to placeholder */}
+            <div className={`aspect-square ${getTypeColor(nft.type)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
+              {!failedImages.has(nft.tokenId) ? (
+                <img
+                  src={getArtworkUrl(nft.tokenId)}
+                  alt={nft.name}
+                  className="w-full h-full object-cover"
+                  onError={() => handleImageError(nft.tokenId)}
+                />
+              ) : (
+                getIcon(nft.type)
+              )}
             </div>
 
             {/* Info */}
