@@ -157,6 +157,24 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
         <div className="flex items-center space-x-2 mb-4">
           <Gamepad2 className="w-5 h-5 text-cyan-400" />
           <h2 className="text-xl font-bold text-white">CyberVerse</h2>
+          <a
+            href="https://playcyberverse.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-2 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Play
+          </a>
+          <a
+            href="https://www.cyberversewiki.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Wiki
+          </a>
         </div>
         <div className="text-gray-400 text-center py-8">
           Loading CyberVerse assets...
@@ -176,6 +194,24 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
         <div className="flex items-center space-x-2">
           <Gamepad2 className="w-5 h-5 text-cyan-400" />
           <h2 className="text-xl font-bold text-white">CyberVerse</h2>
+          <a
+            href="https://playcyberverse.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-2 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Play
+          </a>
+          <a
+            href="https://www.cyberversewiki.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Wiki
+          </a>
         </div>
         <div className="flex items-center space-x-3">
           {/* Pagination */}
