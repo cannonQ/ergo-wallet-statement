@@ -172,13 +172,26 @@ class ErgoApiService {
     }
 
     try {
-      const response = await fetch('/data/lp-pairs.json');
+      const response = await fetch('/data/lp-pairs.json', {
+        cache: 'no-store', // Force fresh fetch, skip browser cache
+      });
       if (response.ok) {
         const data = await response.json();
         this.lpPairNames = new Map(Object.entries(data));
         this.lpPairNamesFetchedAt = Date.now();
-        console.log(`Loaded ${this.lpPairNames.size} LP pair names`);
+        // Debug: Check if specific tokens are in the map
+        const testTokens = [
+          '8dcb68ad9fc41a56719835b31c4ccddc958c0906e32a3add374d5745e762ef42', // ERG/Holderino
+          'e35d4eae7024fd0771453de9cd25f52250bea1219e1d6bf861f79cc0390e7c59', // ERG/Rugged
+          '6bf428db2d5a42eb5f70bf125c9b3ce0426a3da40ec9c14933b4814c5720f7ff', // ERG/Pumperino
+        ];
+        for (const tid of testTokens) {
+          console.log(`LP test: ${tid.slice(0, 8)} => ${this.lpPairNames.get(tid) || 'NOT FOUND'}`);
+        }
+        console.log(`Loaded ${this.lpPairNames.size} LP pair names from JSON`);
         return this.lpPairNames;
+      } else {
+        console.error(`Failed to fetch LP pair names: ${response.status}`);
       }
     } catch (error) {
       console.error('Failed to load LP pair names:', error);
@@ -1827,7 +1840,10 @@ class ErgoApiService {
       // Check if we have a friendly LP pair name in our JSON mapping
       const pairName = lpPairNames.get(t.tokenId);
       if (pairName) {
-        displayName = `LP ${pairName}`;
+        console.log(`LP name match: ${t.tokenId.slice(0, 8)} -> ${pairName} (was: ${displayName})`);
+        displayName = pairName;
+      } else if (displayName.toLowerCase().includes('lp') || displayName.toLowerCase().includes('fund')) {
+        console.log(`LP name NOT found for: ${t.tokenId} (name: ${displayName})`);
       }
 
       // Skip value calculation for artwork tokens (they don't have meaningful prices)
