@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { Chart } from './components/Chart';
 import { PieChart } from './components/PieChart';
@@ -9,6 +9,7 @@ import { TransactionHeatmap } from './components/TransactionHeatmap';
 import { DemurrageAlert } from './components/DemurrageAlert';
 import { TopHodls } from './components/TopHodls';
 import { NFTGallery } from './components/NFTGallery';
+import { CyberVerseGallery } from './components/CyberVerseGallery';
 import { AlertSystem } from './components/AlertSystem';
 import { ergoApi } from './services/ergoApi';
 import type { Alert, Holding } from './types';
@@ -46,6 +47,15 @@ interface NFT {
   artworkUrl: string | null;
 }
 
+interface CyberVerseSets {
+  gen2: Set<string>;
+  gen3: Set<string>;
+  cars: Set<string>;
+  apartments: Set<string>;
+  pets: Set<string>;
+  skins: Set<string>;
+}
+
 // Categorize tokens based on known token names
 const categorizeToken = (name: string): Holding['category'] => {
   const nameLower = name.toLowerCase();
@@ -70,6 +80,7 @@ function App() {
   const [demurrageBoxes, setDemurrageBoxes] = useState<DemurrageBox[]>([]);
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [balanceHistory, setBalanceHistory] = useState<Array<{ month: string; balance: number }>>([]);
+  const [cyberverseSets, setCyberverseSets] = useState<CyberVerseSets | null>(null);
 
   // Loading states for individual sections
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -91,6 +102,23 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // Load CyberVerse token IDs on mount
+  useEffect(() => {
+    fetch('/data/cyberverse_ids.json')
+      .then(res => res.json())
+      .then(data => {
+        setCyberverseSets({
+          gen2: new Set(data.gen2 || []),
+          gen3: new Set(data.gen3 || []),
+          cars: new Set(data.cars || []),
+          apartments: new Set(data.apartments || []),
+          pets: new Set(data.pets || []),
+          skins: new Set(data.skins || []),
+        });
+      })
+      .catch(err => console.error('Failed to load CyberVerse IDs:', err));
+  }, []);
 
   // Fetch transactions and token movements for selected month
   const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date) => {
@@ -343,6 +371,24 @@ function App() {
     values: [currentErgValue, currentStablesValue, currentTokensValue, currentLiquidityValue],
   };
 
+  // Helper to check if a token ID is a CyberVerse token
+  const isCyberverseToken = useCallback((tokenId: string): boolean => {
+    if (!cyberverseSets) return false;
+    return (
+      cyberverseSets.gen2.has(tokenId) ||
+      cyberverseSets.gen3.has(tokenId) ||
+      cyberverseSets.cars.has(tokenId) ||
+      cyberverseSets.apartments.has(tokenId) ||
+      cyberverseSets.pets.has(tokenId) ||
+      cyberverseSets.skins.has(tokenId)
+    );
+  }, [cyberverseSets]);
+
+  // Filter out CyberVerse NFTs from the regular NFT gallery
+  const nonCyberverseNfts = useMemo(() => {
+    return nfts.filter(nft => !isCyberverseToken(nft.tokenId));
+  }, [nfts, isCyberverseToken]);
+
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
       {/* Sticky header */}
@@ -422,8 +468,17 @@ function App() {
             </div>
           </div>
 
+          {/* CyberVerse Gallery */}
+          <div className="mb-6">
+            <CyberVerseGallery
+              nfts={nfts}
+              cyberverseSets={cyberverseSets}
+              isLoading={loadingNFTs}
+            />
+          </div>
+
           {/* NFT Gallery */}
-          <NFTGallery nfts={nfts} isLoading={loadingNFTs} />
+          <NFTGallery nfts={nonCyberverseNfts} isLoading={loadingNFTs} />
         </>
       )}
 
