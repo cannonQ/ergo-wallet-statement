@@ -54,6 +54,11 @@ interface CyberVerseSets {
   apartments: Set<string>;
   pets: Set<string>;
   skins: Set<string>;
+  vipcards: Set<string>;
+  emotes: Set<string>;
+  audio: Set<string>;
+  jackhammers: Set<string>;
+  eggs: Set<string>;
 }
 
 // Categorize tokens based on known token names
@@ -115,6 +120,11 @@ function App() {
           apartments: new Set(data.apartments || []),
           pets: new Set(data.pets || []),
           skins: new Set(data.skins || []),
+          vipcards: new Set(data.vipcards || []),
+          emotes: new Set(data.emotes || []),
+          audio: new Set(data.audio || []),
+          jackhammers: new Set(data.jackhammers || []),
+          eggs: new Set(data.eggs || []),
         });
       })
       .catch(err => console.error('Failed to load CyberVerse IDs:', err));
@@ -380,7 +390,12 @@ function App() {
       cyberverseSets.cars.has(tokenId) ||
       cyberverseSets.apartments.has(tokenId) ||
       cyberverseSets.pets.has(tokenId) ||
-      cyberverseSets.skins.has(tokenId)
+      cyberverseSets.skins.has(tokenId) ||
+      cyberverseSets.vipcards.has(tokenId) ||
+      cyberverseSets.emotes.has(tokenId) ||
+      cyberverseSets.audio.has(tokenId) ||
+      cyberverseSets.jackhammers.has(tokenId) ||
+      cyberverseSets.eggs.has(tokenId)
     );
   }, [cyberverseSets]);
 
