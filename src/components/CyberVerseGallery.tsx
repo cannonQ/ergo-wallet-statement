@@ -11,7 +11,7 @@ interface NFT {
   artworkUrl: string | null;
 }
 
-type CyberVerseCategory = 'All' | 'Gen2' | 'Gen3' | 'Car' | 'Apartment' | 'Pet' | 'Skins';
+type CyberVerseCategory = 'All' | 'Gen2' | 'Gen3' | 'Car' | 'Apartment' | 'Pet' | 'Skins' | 'VIPCard' | 'Emote' | 'Audio' | 'JackHammer' | 'Egg';
 
 interface CyberVerseSets {
   gen2: Set<string>;
@@ -20,6 +20,11 @@ interface CyberVerseSets {
   apartments: Set<string>;
   pets: Set<string>;
   skins: Set<string>;
+  vipcards: Set<string>;
+  emotes: Set<string>;
+  audio: Set<string>;
+  jackhammers: Set<string>;
+  eggs: Set<string>;
 }
 
 interface CyberVerseGalleryProps {
@@ -28,14 +33,20 @@ interface CyberVerseGalleryProps {
   isLoading?: boolean;
 }
 
-// Map category to the corresponding set key
-const categoryToSetKey: Record<Exclude<CyberVerseCategory, 'All'>, keyof CyberVerseSets> = {
-  Gen2: 'gen2',
-  Gen3: 'gen3',
-  Car: 'cars',
-  Apartment: 'apartments',
-  Pet: 'pets',
-  Skins: 'skins',
+// Category display labels
+const categoryLabels: Record<CyberVerseCategory, string> = {
+  All: 'All',
+  Gen2: 'Gen 2',
+  Gen3: 'Gen 3',
+  Car: 'Cars',
+  Apartment: 'Apartments',
+  Pet: 'Pets',
+  Skins: 'Skins',
+  VIPCard: 'VIP Cards',
+  Emote: 'Emotes',
+  Audio: 'Audio',
+  JackHammer: 'JackHammers',
+  Egg: 'Eggs',
 };
 
 export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
@@ -47,7 +58,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   const [page, setPage] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-  const categories: CyberVerseCategory[] = ['All', 'Gen2', 'Gen3', 'Car', 'Apartment', 'Pet', 'Skins'];
+  const categories: CyberVerseCategory[] = ['All', 'Gen2', 'Gen3', 'Car', 'Apartment', 'Pet', 'Skins', 'VIPCard', 'Emote', 'Audio', 'JackHammer', 'Egg'];
 
   const openExplorer = (tokenId: string) => {
     window.open(`https://ergexplorer.com/token#${tokenId}`, '_blank');
@@ -74,6 +85,11 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
     if (cyberverseSets.apartments.has(tokenId)) return 'Apartment';
     if (cyberverseSets.pets.has(tokenId)) return 'Pet';
     if (cyberverseSets.skins.has(tokenId)) return 'Skins';
+    if (cyberverseSets.vipcards.has(tokenId)) return 'VIPCard';
+    if (cyberverseSets.emotes.has(tokenId)) return 'Emote';
+    if (cyberverseSets.audio.has(tokenId)) return 'Audio';
+    if (cyberverseSets.jackhammers.has(tokenId)) return 'JackHammer';
+    if (cyberverseSets.eggs.has(tokenId)) return 'Egg';
 
     return null;
   };
@@ -125,6 +141,16 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
         return 'bg-yellow-600';
       case 'Skins':
         return 'bg-rose-600';
+      case 'VIPCard':
+        return 'bg-amber-600';
+      case 'Emote':
+        return 'bg-pink-600';
+      case 'Audio':
+        return 'bg-indigo-600';
+      case 'JackHammer':
+        return 'bg-slate-600';
+      case 'Egg':
+        return 'bg-lime-600';
       default:
         return 'bg-cyan-600';
     }
@@ -140,6 +166,11 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
       Apartment: 0,
       Pet: 0,
       Skins: 0,
+      VIPCard: 0,
+      Emote: 0,
+      Audio: 0,
+      JackHammer: 0,
+      Egg: 0,
     };
 
     cyberverseNfts.forEach(nft => {
@@ -181,11 +212,6 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
         </div>
       </div>
     );
-  }
-
-  // Don't render if no CyberVerse items found
-  if (cyberverseNfts.length === 0) {
-    return null;
   }
 
   return (
@@ -252,7 +278,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
             }`}
             onClick={() => handleCategoryChange(category)}
           >
-            {category}
+            {categoryLabels[category]}
             {categoryCounts[category] > 0 && (
               <span className="ml-1 text-xs opacity-75">({categoryCounts[category]})</span>
             )}
@@ -260,54 +286,61 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {paginatedNfts.map((nft) => (
-          <div
-            key={nft.tokenId}
-            className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all cursor-pointer group"
-            onClick={() => openExplorer(nft.tokenId)}
-          >
-            {/* Artwork image with placeholder fallback */}
-            <div className={`aspect-square ${getCategoryColor(nft.cyberverseCategory)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
-              {(() => {
-                const imageUrl = getImageUrl(nft);
-                if (imageUrl) {
-                  return (
-                    <img
-                      src={imageUrl}
-                      alt={nft.name}
-                      className="w-full h-full object-cover"
-                      onError={() => handleImageError(nft.tokenId)}
-                    />
-                  );
-                }
-                return <Image className="w-8 h-8" />;
-              })()}
-            </div>
+      {cyberverseNfts.length === 0 ? (
+        <div className="text-gray-400 text-center py-8">
+          <p>No CyberVerse NFTs found in this wallet</p>
+          <p className="text-sm mt-2">CyberVerse NFTs include Gen 2, Gen 3, Cars, Apartments, Pets, and more</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {paginatedNfts.map((nft) => (
+            <div
+              key={nft.tokenId}
+              className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all cursor-pointer group"
+              onClick={() => openExplorer(nft.tokenId)}
+            >
+              {/* Artwork image with placeholder fallback */}
+              <div className={`aspect-square ${getCategoryColor(nft.cyberverseCategory)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
+                {(() => {
+                  const imageUrl = getImageUrl(nft);
+                  if (imageUrl) {
+                    return (
+                      <img
+                        src={imageUrl}
+                        alt={nft.name}
+                        className="w-full h-full object-cover"
+                        onError={() => handleImageError(nft.tokenId)}
+                      />
+                    );
+                  }
+                  return <Image className="w-8 h-8" />;
+                })()}
+              </div>
 
-            {/* Info */}
-            <div className="p-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-medium text-sm truncate" title={nft.name}>
-                    {nft.name}
-                  </h3>
-                  <p className="text-gray-400 text-xs mt-1 line-clamp-2" title={nft.description}>
-                    {nft.description}
-                  </p>
+              {/* Info */}
+              <div className="p-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-medium text-sm truncate" title={nft.name}>
+                      {nft.name}
+                    </h3>
+                    <p className="text-gray-400 text-xs mt-1 line-clamp-2" title={nft.description}>
+                      {nft.description}
+                    </p>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
                 </div>
-                <ExternalLink className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
-              </div>
 
-              <div className="mt-2">
-                <span className={`text-xs px-2 py-0.5 rounded ${getCategoryColor(nft.cyberverseCategory)} text-white`}>
-                  {nft.cyberverseCategory}
-                </span>
+                <div className="mt-2">
+                  <span className={`text-xs px-2 py-0.5 rounded ${getCategoryColor(nft.cyberverseCategory)} text-white`}>
+                    {nft.cyberverseCategory && categoryLabels[nft.cyberverseCategory]}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
