@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { token_id, time_point, time_window } = req.query;
+  const { token_id, time_point } = req.query;
 
   // Validate required parameters
   if (!token_id || !time_point) {
@@ -20,22 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid token_id format' });
   }
 
-  // Validate time_point is a number
-  const timePointNum = Number(time_point);
-  if (isNaN(timePointNum)) {
+  // Validate time_point is a number (milliseconds timestamp)
+  const timePointMs = Number(time_point);
+  if (isNaN(timePointMs)) {
     return res.status(400).json({ error: 'time_point must be a number' });
   }
 
-  const timeWindowNum = time_window ? Number(time_window) : timePointNum;
-
-  // Crux API expects:
-  // - time_point in milliseconds
-  // - time_window in seconds
-  const timePointMs = timePointNum;
-  const timeWindowSeconds = Math.floor(timeWindowNum / 1000);
-
   try {
-    const url = `${CRUX_API_URL}/spectrum/price_stats?token_id=${token_id}&time_point=${timePointMs}&time_window=${timeWindowSeconds}`;
+    const url = `${CRUX_API_URL}/spectrum/price?token_id=${token_id}&time_point=${timePointMs}`;
 
     const response = await fetch(url, {
       headers: { 'Accept': 'application/json' },
