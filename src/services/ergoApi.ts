@@ -113,17 +113,9 @@ export interface LpPairInfo {
   lockedErg?: number;
 }
 
-export interface HistoricalPriceStats {
-  token_info: {
-    token_id: string;
-    name: string;
-    description: string;
-    minted: number;
-    decimals: number;
-  };
-  max: { erg: number; usd: number };
-  min: { erg: number; usd: number };
-  average: { erg: number; usd: number };
+export interface HistoricalPriceResponse {
+  erg_price_usd: number;
+  asset_price_erg: number;
 }
 
 export interface HistoricalPriceData {
@@ -1422,18 +1414,15 @@ class ErgoApiService {
    * Uses local API route that proxies to Crux Finance API (avoids CORS issues)
    * @param tokenId The token ID to get historical price for
    * @param timePoint Unix timestamp (in milliseconds) for the price point
-   * @param timeWindow Unix timestamp in milliseconds for the time window (typically same as timePoint for point-in-time)
    * @returns Historical price data or null if not available
    */
   async getHistoricalTokenPrice(
     tokenId: string,
-    timePoint: number,
-    timeWindow?: number
+    timePoint: number
   ): Promise<HistoricalPriceData | null> {
     try {
-      const window = timeWindow || timePoint;
       // Use local API route to avoid CORS issues
-      const url = `/api/historical-price?token_id=${tokenId}&time_point=${timePoint}&time_window=${window}`;
+      const url = `/api/historical-price?token_id=${tokenId}&time_point=${timePoint}`;
 
       const response = await fetch(url, {
         headers: { 'Accept': 'application/json' },
@@ -1444,12 +1433,12 @@ class ErgoApiService {
         return null;
       }
 
-      const data: HistoricalPriceStats = await response.json();
+      const data: HistoricalPriceResponse = await response.json();
 
-      if (data.average && data.average.erg > 0) {
+      if (data.asset_price_erg && data.asset_price_erg > 0) {
         return {
-          priceInErg: data.average.erg,
-          priceInUsd: data.average.usd,
+          priceInErg: data.asset_price_erg,
+          priceInUsd: data.asset_price_erg * data.erg_price_usd,
         };
       }
 
@@ -1478,10 +1467,6 @@ class ErgoApiService {
     const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
     const timePointMs = endOfMonth.getTime();
 
-    // Calculate time window - from start of month to end of month (in milliseconds)
-    const startOfMonth = new Date(year, month, 1);
-    const timeWindowMs = startOfMonth.getTime();
-
     console.log(`Fetching historical prices for ${tokenIds.length} tokens at ${endOfMonth.toISOString()}`);
 
     // Fetch prices in parallel with a reasonable batch size
@@ -1490,7 +1475,7 @@ class ErgoApiService {
       const batch = tokenIds.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
         batch.map(tokenId =>
-          this.getHistoricalTokenPrice(tokenId, timePointMs, timeWindowMs)
+          this.getHistoricalTokenPrice(tokenId, timePointMs)
             .then(data => ({ tokenId, data }))
         )
       );
@@ -1538,8 +1523,8 @@ class ErgoApiService {
       const results = await Promise.all(
         batch.map(async tokenId => {
           const [startData, endData] = await Promise.all([
-            this.getHistoricalTokenPrice(tokenId, startTimeMs, startTimeMs),
-            this.getHistoricalTokenPrice(tokenId, endTimeMs, endTimeMs),
+            this.getHistoricalTokenPrice(tokenId, startTimeMs),
+            this.getHistoricalTokenPrice(tokenId, endTimeMs),
           ]);
           return { tokenId, startData, endData };
         })
