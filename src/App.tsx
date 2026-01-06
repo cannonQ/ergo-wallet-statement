@@ -62,11 +62,24 @@ interface CyberVerseSets {
   eggs: Set<string>;
 }
 
-// Categorize tokens based on known token names
-const categorizeToken = (name: string): Holding['category'] => {
+// Known stablecoin token IDs
+const STABLECOIN_TOKEN_IDS = new Set([
+  '03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04', // SigUSD
+  '003bd19d0187117f130b62e1bcab0939929ff5c7709f843c5c4dd158949285d0', // SigRSV
+  '6122f7289e7bb2df2de273e09d4b2756cda6aeb0f40438dc9d257688f45183ad', // DexyGold
+  'a55b8735ed1a99e46c2c89f8994aacdf4b1109bdcf682f1e5b34479c6e392669', // USE
+  '886b7721bef42f60c6317d37d8752da8aca01898cae7dae61808c4a14225edc8', // GluonW GAU
+  '9944ff273ff169f32b851b96bbecdbb67f223101c15ae143de82b3e7f75b19d2', // GluonW GAUC
+  '85763f3893ddd8f7f820473ed0dcc3c40aa8398ec6075a8990f250b9d270e9b3', // CLB USE
+]);
+
+// Categorize tokens based on token ID and name
+const categorizeToken = (name: string, tokenId?: string): Holding['category'] => {
   const nameLower = name.toLowerCase();
   if (nameLower === 'erg') return 'ERG';
-  if (nameLower.includes('sigusd') || nameLower.includes('sigrsv') || nameLower.includes('stable') || nameLower.includes('gold')) return 'Stables';
+  // Check stables by token ID first (most reliable)
+  if (tokenId && STABLECOIN_TOKEN_IDS.has(tokenId)) return 'Stables';
+  // LP tokens
   if (nameLower.includes('lp') || nameLower.includes('liquidity') || nameLower.includes('lending')) return 'Liquidity/Lending';
   return 'Tokens';
 };
@@ -435,7 +448,7 @@ function App() {
           amount: endingBalance,
           valueInErg,
           change24h: 0,
-          category: categorizeToken(token.name),
+          category: categorizeToken(token.name, token.tokenId),
           beginningBalance,
           additions,
           reductions,
@@ -562,7 +575,7 @@ function App() {
 
           {/* Holdings table */}
           <div className="mb-6">
-            <Holdings holdings={holdings} selectedMonth={selectedMonth} />
+            <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
           </div>
 
           {/* Transaction Activity */}

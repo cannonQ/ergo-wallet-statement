@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Copy, Check, Loader2 } from 'lucide-react';
 import type { Holding } from '../types';
 import { ergoApi, LpPairInfo, HistoricalPriceData } from '../services/ergoApi';
 import { getCategoryColor, formatNumber } from '../constants';
@@ -7,6 +7,7 @@ import { getCategoryColor, formatNumber } from '../constants';
 interface HoldingsProps {
   holdings: Holding[];
   selectedMonth: Date;
+  loadingHistoricalPrices?: boolean;
 }
 
 interface HistoricalPriceInfo {
@@ -22,7 +23,7 @@ const isCurrentMonth = (selectedMonth: Date): boolean => {
          selectedMonth.getMonth() === now.getMonth();
 };
 
-export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) => {
+export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loadingHistoricalPrices = false }) => {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof Holding>('valueInErg');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -361,7 +362,14 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
                   <td className="py-3 text-right text-red-400 tabular-nums">-{formatNumber(holding.reductions)}</td>
                   <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.endingBalance)}</td>
                   <td className="py-3 text-right text-white tabular-nums">
-                    {holding.priceUnavailable ? (
+                    {loadingHistoricalPrices && !showCurrentPrices && holding.tokenId ? (
+                      // Show spinner while loading historical prices
+                      <span className="inline-flex items-center gap-1 text-gray-400">
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>...</span>
+                      </span>
+                    ) : holding.priceUnavailable ? (
+                      // Show warning after load completes with no price
                       <span className="text-yellow-500" title="Historical price not available">
                         {formatNumber(holding.endingBalance)} ⚠️
                       </span>
