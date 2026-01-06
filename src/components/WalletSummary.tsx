@@ -120,6 +120,45 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
                 </tr>
               );
             })}
+            {/* Total row */}
+            {(() => {
+              const totals = categories.reduce((acc, category) => {
+                const summary = getCategorySummary(category);
+                return {
+                  beginning: acc.beginning + summary.beginningBalance,
+                  change: acc.change + summary.change,
+                  ending: acc.ending + summary.endingBalance,
+                };
+              }, { beginning: 0, change: 0, ending: 0 });
+
+              const totalChangePercent = totals.beginning > 0
+                ? ((totals.change / totals.beginning) * 100)
+                : 0;
+
+              return (
+                <tr className="border-t-2 border-gray-700 font-bold">
+                  <td className="py-3 md:py-4">
+                    <span className="text-white text-xs sm:text-sm">TOTAL</span>
+                  </td>
+                  <td className="py-3 md:py-4 text-right text-white tabular-nums text-xs sm:text-sm">
+                    {formatNumber(totals.beginning)}
+                  </td>
+                  <td className={`py-3 md:py-4 text-right tabular-nums text-xs sm:text-sm ${
+                    totals.change === 0 ? 'text-gray-400' : totals.change > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {totals.change > 0 ? '+' : ''}{formatNumber(totals.change)}
+                  </td>
+                  <td className={`py-3 md:py-4 text-right tabular-nums text-xs sm:text-sm ${
+                    totalChangePercent === 0 ? 'text-gray-400' : totalChangePercent > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {totalChangePercent > 0 ? '+' : ''}{isFinite(totalChangePercent) ? totalChangePercent.toFixed(2) : '0.00'}%
+                  </td>
+                  <td className="py-3 md:py-4 text-right text-white tabular-nums text-xs sm:text-sm">
+                    {formatNumber(totals.ending)}
+                  </td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>

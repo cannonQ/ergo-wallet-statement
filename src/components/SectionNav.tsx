@@ -7,12 +7,16 @@ interface Section {
   icon: React.ReactNode;
 }
 
-const sections: Section[] = [
+interface SectionWithMobileLabel extends Section {
+  mobileLabel?: string;
+}
+
+const sections: SectionWithMobileLabel[] = [
   { id: 'chart', label: 'Chart', icon: <BarChart3 size={14} /> },
   { id: 'summary', label: 'Summary', icon: <Wallet size={14} /> },
   { id: 'holdings', label: 'Holdings', icon: <TrendingUp size={14} /> },
   { id: 'heatmap', label: 'Activity', icon: <Calendar size={14} /> },
-  { id: 'transactions', label: 'Transactions', icon: <List size={14} /> },
+  { id: 'transactions', label: 'Transactions', mobileLabel: 'TXs', icon: <List size={14} /> },
   { id: 'cyberverse', label: 'CyberVerse', icon: <Gamepad2 size={14} /> },
   { id: 'nfts', label: 'NFTs', icon: <Image size={14} /> },
 ];
@@ -37,7 +41,8 @@ export const SectionNav: React.FC = () => {
             className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded text-xs sm:text-sm whitespace-nowrap transition-colors flex-shrink-0"
           >
             <span className="hidden sm:inline">{section.icon}</span>
-            {section.label}
+            <span className="sm:hidden">{section.mobileLabel || section.label}</span>
+            <span className="hidden sm:inline">{section.label}</span>
           </button>
         ))}
       </div>

@@ -223,15 +223,15 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
       </div>
 
       <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-        <table className="w-full table-fixed min-w-[800px]">
+        <table className="w-full table-fixed min-w-[600px] md:min-w-[800px]">
           <colgroup>
-            <col className="w-[200px]" /> {/* Token */}
-            <col className="w-[120px]" /> {/* Begin */}
-            <col className="w-[100px]" />  {/* In */}
-            <col className="w-[100px]" />  {/* Out */}
-            <col className="w-[120px]" /> {/* End */}
-            <col className="w-[140px]" /> {/* Value (ERG) */}
-            <col className="w-[120px]" /> {/* Change % */}
+            <col className="w-[120px] md:w-[200px]" /> {/* Token */}
+            <col className="w-[80px] md:w-[120px]" /> {/* Begin */}
+            <col className="w-[70px] md:w-[100px]" />  {/* In */}
+            <col className="w-[70px] md:w-[100px]" />  {/* Out */}
+            <col className="w-[80px] md:w-[120px]" /> {/* End */}
+            <col className="w-[90px] md:w-[140px]" /> {/* Value (ERG) */}
+            <col className="w-[90px] md:w-[120px]" /> {/* Change % */}
           </colgroup>
           <thead>
             <tr className="text-gray-400 border-b border-gray-800 text-xs sm:text-sm">
@@ -269,7 +269,13 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
               const lpInfo = holding.tokenId ? lpPairInfoMap.get(holding.tokenId) : null;
 
               // For LP tokens, show the pair name; otherwise show the token name
-              const displayName = lpInfo
+              const displayName = lpInfo ? lpInfo.lpName : holding.token;
+              const displayNameMobile = lpInfo
+                ? lpInfo.lpName
+                : (holding.token.length > 14
+                    ? holding.token.slice(0, 14) + '...'
+                    : holding.token);
+              const displayNameDesktop = lpInfo
                 ? lpInfo.lpName
                 : (holding.token.length > 20
                     ? holding.token.slice(0, 20) + '...'
@@ -346,7 +352,10 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
                       ) : (
                         // Regular token
                         <>
-                          <span title={holding.token} className="font-medium">{displayName}</span>
+                          <span title={holding.token} className="font-medium">
+                            <span className="md:hidden">{displayNameMobile}</span>
+                            <span className="hidden md:inline">{displayNameDesktop}</span>
+                          </span>
                           {shortTokenId && (
                             <span className="flex items-center gap-1">
                               <a

@@ -180,6 +180,20 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
                 return getIcon(nft.type);
               })()}
 
+              {/* Name badge on lower left corner - mobile only */}
+              <div className="md:hidden absolute bottom-1 left-1">
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white truncate max-w-[120px] block"
+                  style={{
+                    textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 1.5px rgba(0,0,0,1)',
+                    backdropFilter: 'blur(4px)'
+                  }}
+                  title={nft.name}
+                >
+                  {nft.name.length > 25 ? `${nft.name.slice(0, 25)}...` : nft.name}
+                </span>
+              </div>
+
               {/* Type badge on lower right corner */}
               <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
                 <span
