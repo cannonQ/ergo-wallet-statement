@@ -1748,6 +1748,147 @@ class ErgoApiService {
   }
 
   /**
+   * Get monthly balance history with token holdings
+   * Returns ERG balance and token amounts for each month-end
+   * Works backwards from current balance using transaction history
+   */
+  async getMonthlyBalanceHistoryWithTokens(
+    address: string,
+    months: number = 6,
+    currentTokens: Array<{ tokenId: string; amount: number; decimals: number }> = []
+  ): Promise<Array<{
+    month: string;
+    balance: number;
+    tokenHoldings: Map<string, number>; // tokenId -> amount (already adjusted for decimals)
+  }>> {
+    // Get current ERG balance
+    const currentBalance = await this.getErgBalance(address);
+
+    // Get transactions for the past N months
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+
+    // Fetch all transactions in the date range
+    const response = await this.getAddressTransactions(address, {
+      limit: 500, // Fetch enough to cover history
+      offset: 0,
+    });
+
+    // Filter to transactions within our date range
+    const transactions = response.items.filter(
+      tx => tx.timestamp >= startDate.getTime()
+    );
+
+    // Calculate net change for each transaction (ERG and tokens)
+    const txChanges = transactions.map(tx => {
+      // ERG changes
+      const inputValue = tx.inputs
+        .filter(input => input.address === address)
+        .reduce((sum, input) => sum + input.value, 0);
+      const outputValue = tx.outputs
+        .filter(output => output.address === address)
+        .reduce((sum, output) => sum + output.value, 0);
+
+      // Token changes
+      const tokenChanges = new Map<string, number>();
+
+      // Tokens sent (from inputs belonging to this address)
+      for (const input of tx.inputs.filter(i => i.address === address)) {
+        for (const asset of input.assets || []) {
+          const current = tokenChanges.get(asset.tokenId) || 0;
+          tokenChanges.set(asset.tokenId, current - asset.amount);
+        }
+      }
+
+      // Tokens received (from outputs belonging to this address)
+      for (const output of tx.outputs.filter(o => o.address === address)) {
+        for (const asset of output.assets || []) {
+          const current = tokenChanges.get(asset.tokenId) || 0;
+          tokenChanges.set(asset.tokenId, current + asset.amount);
+        }
+      }
+
+      return {
+        timestamp: tx.timestamp,
+        ergChange: (outputValue - inputValue) / NANOERG_TO_ERG,
+        tokenChanges,
+      };
+    });
+
+    // Build current token holdings map (adjusted for decimals)
+    const currentTokenHoldings = new Map<string, number>();
+    for (const token of currentTokens) {
+      currentTokenHoldings.set(token.tokenId, token.amount);
+    }
+
+    // Get token decimals map for adjusting raw amounts
+    const tokenDecimals = new Map<string, number>();
+    for (const token of currentTokens) {
+      tokenDecimals.set(token.tokenId, token.decimals);
+    }
+
+    // Build monthly data working backwards
+    const monthlyData: Array<{
+      month: string;
+      balance: number;
+      tokenHoldings: Map<string, number>;
+    }> = [];
+
+    for (let i = 0; i < months; i++) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+      const monthEndTs = monthEnd.getTime();
+      const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+
+      // For current month, use current balances
+      if (i === 0) {
+        monthlyData.unshift({
+          month: monthLabel,
+          balance: currentBalance,
+          tokenHoldings: new Map(currentTokenHoldings),
+        });
+      } else {
+        // Calculate ERG balance at month end
+        const changesAfterMonth = txChanges.filter(tx => tx.timestamp > monthEndTs);
+        const totalErgChangeAfter = changesAfterMonth.reduce((sum, tx) => sum + tx.ergChange, 0);
+        const balanceAtMonthEnd = currentBalance - totalErgChangeAfter;
+
+        // Calculate token holdings at month end
+        const holdingsAtMonthEnd = new Map<string, number>();
+
+        // Start with current holdings and subtract changes after this month
+        for (const [tokenId, currentAmount] of currentTokenHoldings) {
+          let amount = currentAmount;
+          const decimals = tokenDecimals.get(tokenId) || 0;
+          const divisor = decimals > 0 ? Math.pow(10, decimals) : 1;
+
+          // Subtract changes that happened after this month end
+          for (const tx of changesAfterMonth) {
+            const change = tx.tokenChanges.get(tokenId);
+            if (change !== undefined) {
+              // change is in raw units, convert to display units
+              amount -= change / divisor;
+            }
+          }
+
+          // Only include if there was a balance
+          if (amount > 0) {
+            holdingsAtMonthEnd.set(tokenId, amount);
+          }
+        }
+
+        monthlyData.unshift({
+          month: monthLabel,
+          balance: Math.max(0, balanceAtMonthEnd),
+          tokenHoldings: holdingsAtMonthEnd,
+        });
+      }
+    }
+
+    return monthlyData;
+  }
+
+  /**
    * Get full balance with tokens and their ERG values
    * Marks artwork tokens so they can be filtered from Holdings:
    * - Tokens with amount=1 and decimals=0 (classic NFTs)
