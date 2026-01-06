@@ -11,6 +11,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { Loader2 } from 'lucide-react';
 import { CATEGORY_COLORS, formatNumber } from '../constants';
 
 ChartJS.register(
@@ -32,9 +33,14 @@ interface ChartProps {
     liquidity: number[];
     tokens: number[];
   };
+  range: 3 | 6 | 12;
+  onRangeChange: (range: 3 | 6 | 12) => void;
+  isLoading?: boolean;
 }
 
-export const Chart: React.FC<ChartProps> = ({ data }) => {
+export const Chart: React.FC<ChartProps> = ({ data, range, onRangeChange, isLoading }) => {
+  const ranges: Array<3 | 6 | 12> = [3, 6, 12];
+
   const chartData = {
     labels: data.labels,
     datasets: [
@@ -136,8 +142,31 @@ export const Chart: React.FC<ChartProps> = ({ data }) => {
   };
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg h-[300px]">
-      <Line options={options} data={chartData} />
+    <div className="bg-gray-900 p-6 rounded-lg shadow-lg h-[300px] flex flex-col">
+      {/* Range selector */}
+      <div className="flex justify-end gap-1 mb-2">
+        {ranges.map((r) => (
+          <button
+            key={r}
+            onClick={() => onRangeChange(r)}
+            disabled={isLoading}
+            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+              range === r
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {r}m
+          </button>
+        ))}
+        {isLoading && (
+          <Loader2 size={14} className="animate-spin text-gray-400 ml-2 self-center" />
+        )}
+      </div>
+      {/* Chart */}
+      <div className="flex-1 min-h-0">
+        <Line options={options} data={chartData} />
+      </div>
     </div>
   );
 };
