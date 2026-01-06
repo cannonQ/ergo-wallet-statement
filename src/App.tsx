@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { Navbar } from './components/Navbar';
+import { SectionNav } from './components/SectionNav';
 import { Chart } from './components/Chart';
 import { PieChart } from './components/PieChart';
 import { WalletSummary } from './components/WalletSummary';
@@ -728,6 +729,9 @@ function App() {
         </div>
       )}
 
+      {/* Section Navigation - only show when wallet is loaded */}
+      {address && balance !== null && !isLoading && <SectionNav />}
+
       {/* Scrollable content */}
       <div className="flex-1 overflow-auto px-4 md:px-6 pb-4 md:pb-6 pt-3 md:pt-4">
 
@@ -751,7 +755,7 @@ function App() {
       {address && balance !== null && !isLoading && (
         <>
           {/* Charts row */}
-          <div className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-3 md:gap-4 mb-4 md:mb-6">
+          <div id="chart" className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-3 md:gap-4 mb-4 md:mb-6">
             <Chart
               data={chartData}
               range={chartRange}
@@ -762,20 +766,20 @@ function App() {
           </div>
 
           {/* Summary, Top Hodls, and Demurrage row */}
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 md:gap-4 mb-4 md:mb-6">
+          <div id="summary" className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 md:gap-4 mb-4 md:mb-6">
             <WalletSummary holdings={holdings} />
             <TopHodls holdings={holdings} />
             <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
           </div>
 
           {/* Holdings table */}
-          <div className="mb-4 md:mb-6">
+          <div id="holdings" className="mb-4 md:mb-6">
             <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
           </div>
 
           {/* Transaction Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
-            <div className="lg:col-span-1">
+          <div id="heatmap" className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
+            <div id="transactions" className="lg:col-span-1">
               <TransactionHeatmap
                 transactions={transactions}
                 selectedMonth={selectedMonth}
@@ -798,7 +802,7 @@ function App() {
           </div>
 
           {/* CyberVerse Gallery */}
-          <div className="mb-4 md:mb-6">
+          <div id="cyberverse" className="mb-4 md:mb-6">
             <CyberVerseGallery
               nfts={safeNfts}
               cyberverseSets={cyberverseSets}
@@ -807,7 +811,9 @@ function App() {
           </div>
 
           {/* NFT Gallery */}
-          <NFTGallery nfts={nonCyberverseNfts} isLoading={loadingNFTs} />
+          <div id="nfts">
+            <NFTGallery nfts={nonCyberverseNfts} isLoading={loadingNFTs} />
+          </div>
         </>
       )}
 
