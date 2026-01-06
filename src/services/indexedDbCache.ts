@@ -3,16 +3,24 @@
  *
  * Provides persistent caching for historical price data.
  * This avoids re-fetching large JSON files on repeat visits.
+ *
+ * Historical price data is immutable - past months never change,
+ * only new months are appended. We use version-based invalidation
+ * rather than time-based expiration.
  */
 
 const DB_NAME = 'ergo-wallet-cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped for new schema
 
 interface CacheEntry<T> {
   key: string;
   data: T;
   timestamp: number;
   expiresAt: number;
+  /** Data version (e.g., "v5" from filename) for immutable data */
+  version?: string;
+  /** Last month in the dataset for append-only data */
+  lastMonth?: string;
 }
 
 class IndexedDbCacheService {
@@ -95,9 +103,21 @@ class IndexedDbCacheService {
   }
 
   /**
-   * Set cached data with TTL
+   * Set cached data with TTL and optional version info
+   * For immutable historical data, use a very long TTL with version tracking
    */
-  async set<T>(storeName: string, key: string, data: T, ttlMs: number = 24 * 60 * 60 * 1000): Promise<void> {
+  async set<T>(
+    storeName: string,
+    key: string,
+    data: T,
+    options: {
+      ttlMs?: number;
+      version?: string;
+      lastMonth?: string;
+    } = {}
+  ): Promise<void> {
+    const { ttlMs = 24 * 60 * 60 * 1000, version, lastMonth } = options;
+
     try {
       const db = await this.getDb();
 
@@ -110,6 +130,8 @@ class IndexedDbCacheService {
           data,
           timestamp: Date.now(),
           expiresAt: Date.now() + ttlMs,
+          version,
+          lastMonth,
         };
 
         const request = store.put(entry);
@@ -118,6 +140,47 @@ class IndexedDbCacheService {
       });
     } catch (error) {
       console.error('IndexedDB set error:', error);
+    }
+  }
+
+  /**
+   * Get cache metadata without loading full data
+   * Useful for checking if cache needs refresh for append-only data
+   */
+  async getMetadata(storeName: string, key: string): Promise<{
+    exists: boolean;
+    version?: string;
+    lastMonth?: string;
+    timestamp?: number;
+  }> {
+    try {
+      const db = await this.getDb();
+
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.get(key);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const entry = request.result as CacheEntry<unknown> | undefined;
+
+          if (!entry) {
+            resolve({ exists: false });
+            return;
+          }
+
+          resolve({
+            exists: true,
+            version: entry.version,
+            lastMonth: entry.lastMonth,
+            timestamp: entry.timestamp,
+          });
+        };
+      });
+    } catch (error) {
+      console.error('IndexedDB getMetadata error:', error);
+      return { exists: false };
     }
   }
 

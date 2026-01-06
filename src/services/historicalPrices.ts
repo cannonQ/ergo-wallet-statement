@@ -13,8 +13,14 @@
 
 import { indexedDbCache } from './indexedDbCache';
 
-// Cache TTL: 7 days for historical data (it doesn't change)
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+// Cache TTL: 1 year for historical data
+// Historical data is IMMUTABLE - past months never change, only new months are appended.
+// We use version-based invalidation (v5 in filename) rather than time-based expiration.
+// Cache will be invalidated when file version changes (e.g., v5 -> v6).
+const CACHE_TTL = 365 * 24 * 60 * 60 * 1000;
+
+// Data version from filename - bump this when data format changes
+const DATA_VERSION = 'v5';
 
 // Types for token price data
 interface TokenPriceEntry {
@@ -157,11 +163,11 @@ class HistoricalPriceService {
 
     this.tokenPricesLoading = (async () => {
       try {
-        // Try IndexedDB cache first
+        // Try IndexedDB cache first (keyed by version for automatic invalidation)
         if (indexedDbCache.isSupported()) {
-          const cached = await indexedDbCache.get<TokenPricesFile>('json', 'token_prices_v5');
+          const cached = await indexedDbCache.get<TokenPricesFile>('json', `token_prices_${DATA_VERSION}`);
           if (cached) {
-            console.log('Loaded token prices from IndexedDB cache');
+            console.log(`Loaded token prices from IndexedDB cache (${DATA_VERSION})`);
             this.tokenPricesData = cached;
             return;
           }
@@ -175,10 +181,12 @@ class HistoricalPriceService {
         this.tokenPricesData = await response.json();
         console.log(`Loaded token prices for ${this.tokenPricesData?.tokens_count} tokens`);
 
-        // Cache in IndexedDB for future visits
+        // Cache in IndexedDB for future visits (essentially forever - data is immutable)
         if (indexedDbCache.isSupported() && this.tokenPricesData) {
-          indexedDbCache.set('json', 'token_prices_v5', this.tokenPricesData, CACHE_TTL)
-            .catch(err => console.error('Failed to cache token prices:', err));
+          indexedDbCache.set('json', `token_prices_${DATA_VERSION}`, this.tokenPricesData, {
+            ttlMs: CACHE_TTL,
+            version: DATA_VERSION,
+          }).catch(err => console.error('Failed to cache token prices:', err));
         }
       } catch (error) {
         console.error('Error loading token prices:', error);
@@ -208,11 +216,11 @@ class HistoricalPriceService {
 
     this.lpPricesLoading = (async () => {
       try {
-        // Try IndexedDB cache first (this is a 6.9MB file!)
+        // Try IndexedDB cache first (this is a 6.9MB file! keyed by version)
         if (indexedDbCache.isSupported()) {
-          const cached = await indexedDbCache.get<LpPricesFile>('json', 'lp_prices_v5');
+          const cached = await indexedDbCache.get<LpPricesFile>('json', `lp_prices_${DATA_VERSION}`);
           if (cached) {
-            console.log('Loaded LP prices from IndexedDB cache');
+            console.log(`Loaded LP prices from IndexedDB cache (${DATA_VERSION})`);
             this.lpPricesData = cached;
             return;
           }
@@ -226,10 +234,15 @@ class HistoricalPriceService {
         this.lpPricesData = await response.json();
         console.log(`Loaded LP prices: ${this.lpPricesData?.metadata.total_records} records`);
 
-        // Cache in IndexedDB for future visits
+        // Cache in IndexedDB for future visits (essentially forever - data is immutable)
+        // Store the last month from metadata for potential future smart refresh
+        const lastMonth = this.lpPricesData?.metadata?.date_range?.end;
         if (indexedDbCache.isSupported() && this.lpPricesData) {
-          indexedDbCache.set('json', 'lp_prices_v5', this.lpPricesData, CACHE_TTL)
-            .catch(err => console.error('Failed to cache LP prices:', err));
+          indexedDbCache.set('json', `lp_prices_${DATA_VERSION}`, this.lpPricesData, {
+            ttlMs: CACHE_TTL,
+            version: DATA_VERSION,
+            lastMonth,
+          }).catch(err => console.error('Failed to cache LP prices:', err));
         }
       } catch (error) {
         console.error('Error loading LP prices:', error);
