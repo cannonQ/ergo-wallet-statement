@@ -12,6 +12,7 @@ import { NFTGallery } from './components/NFTGallery';
 import { CyberVerseGallery } from './components/CyberVerseGallery';
 import { AlertSystem } from './components/AlertSystem';
 import { ergoApi } from './services/ergoApi';
+import { historicalPrices, isCurrentMonth, type LpPriceResult, type TokenPriceResult } from './services/historicalPrices';
 import type { Alert, Holding } from './types';
 
 interface Token {
@@ -98,6 +99,11 @@ function App() {
   // Token movements (In/Out) for selected month
   const [tokenMovements, setTokenMovements] = useState<Map<string, { additions: number; reductions: number }>>(new Map());
 
+  // Historical pricing state
+  const [historicalTokenPrices, setHistoricalTokenPrices] = useState<Map<string, TokenPriceResult>>(new Map());
+  const [historicalLpPrices, setHistoricalLpPrices] = useState<Map<string, LpPriceResult>>(new Map());
+  const [loadingHistoricalPrices, setLoadingHistoricalPrices] = useState(false);
+
   // UI state
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -131,7 +137,7 @@ function App() {
   }, []);
 
   // Fetch transactions and token movements for selected month
-  const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date) => {
+  const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date, currentTokens: Token[] = []) => {
     setLoadingTransactions(true);
     setHasMoreTransactions(false);
     // Clear cache when switching months to ensure fresh data
@@ -156,6 +162,40 @@ function App() {
       setTotalTransactions(txResult.total);
       setHasMoreTransactions(txResult.hasMore);
       setTokenMovements(movements);
+
+      // For non-current months, fetch historical prices from JSON
+      if (!isCurrentMonth(month)) {
+        setLoadingHistoricalPrices(true);
+        try {
+          // Get all token IDs from current holdings
+          const tokenIds = currentTokens.map(t => t.tokenId);
+
+          // Get LP token IDs (tokens in Liquidity/Lending category or known LP tokens)
+          const lpTokenIds = await historicalPrices.getLpTokenIds();
+          const lpIds = tokenIds.filter(id => lpTokenIds.has(id));
+          const regularTokenIds = tokenIds.filter(id => !lpTokenIds.has(id));
+
+          // Fetch prices in parallel
+          const [tokenPriceResults, lpPriceResults] = await Promise.all([
+            historicalPrices.getTokenPrices(regularTokenIds, month),
+            historicalPrices.getLpPrices(lpIds, month),
+          ]);
+
+          setHistoricalTokenPrices(tokenPriceResults);
+          setHistoricalLpPrices(lpPriceResults);
+          console.log(`Loaded historical prices: ${tokenPriceResults.size} tokens, ${lpPriceResults.size} LPs`);
+        } catch (err) {
+          console.error('Failed to load historical prices:', err);
+          setHistoricalTokenPrices(new Map());
+          setHistoricalLpPrices(new Map());
+        } finally {
+          setLoadingHistoricalPrices(false);
+        }
+      } else {
+        // Clear historical prices for current month (use live prices instead)
+        setHistoricalTokenPrices(new Map());
+        setHistoricalLpPrices(new Map());
+      }
     } catch (err) {
       console.error('Failed to load transactions:', err);
       setTransactions([]);
@@ -224,8 +264,8 @@ function App() {
         },
       ]);
 
-      // Fetch transactions for selected month in background
-      fetchTransactionsForMonth(walletAddress, month);
+      // Fetch transactions for selected month in background (pass tokens for historical pricing)
+      fetchTransactionsForMonth(walletAddress, month, fullBalance.tokens);
 
       // Fetch balance history for chart in background
       setLoadingHistory(true);
@@ -277,9 +317,9 @@ function App() {
     setSelectedMonth(month);
     setSelectedDate(null); // Clear date filter when month changes
     if (address) {
-      fetchTransactionsForMonth(address, month);
+      fetchTransactionsForMonth(address, month, tokens);
     }
-  }, [address, fetchTransactionsForMonth]);
+  }, [address, fetchTransactionsForMonth, tokens]);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
@@ -302,8 +342,11 @@ function App() {
 
   const selectedMonthBalance = getSelectedMonthBalance();
 
+  // Check if we're viewing current month vs historical
+  const viewingCurrentMonth = isCurrentMonth(selectedMonth);
+
   // Convert tokens to Holdings format for the original components
-  // Note: ERG shows selected month's ending balance, tokens show current values
+  // For historical months, use historical prices from JSON; for current month, use live prices
   // Get ERG movements for the month (stored with pseudo ID '__ERG__')
   const ergMovement = tokenMovements.get('__ERG__') || { additions: 0, reductions: 0 };
 
@@ -313,7 +356,7 @@ function App() {
       token: 'ERG',
       tokenId: '', // ERG has no token ID
       amount: selectedMonthBalance,
-      valueInErg: selectedMonthBalance, // ERG value = ERG amount
+      valueInErg: selectedMonthBalance, // ERG value = ERG amount (always 1:1)
       change24h: 0,
       category: 'ERG' as const,
       beginningBalance: selectedMonthBalance - ergMovement.additions + ergMovement.reductions,
@@ -321,7 +364,9 @@ function App() {
       reductions: ergMovement.reductions,
       endingBalance: selectedMonthBalance,
     },
-    // Token holdings with ERG values from Crux Finance prices (current values)
+    // Token holdings with ERG values
+    // For current month: use live Crux prices
+    // For historical months: use historical prices from JSON files
     // Filter out EIP-4 artwork tokens - they should only appear in NFT Gallery
     ...tokens
       .filter(token => !token.isArtwork)
@@ -332,53 +377,114 @@ function App() {
         const additions = rawMovement.additions / divisor;
         const reductions = rawMovement.reductions / divisor;
 
+        // Calculate ending balance for the selected month
+        const endingBalance = token.amount;
+        const beginningBalance = endingBalance - additions + reductions;
+
+        // Determine value in ERG based on whether it's current or historical month
+        let valueInErg = token.valueInErg; // Default to live price
+        let displayName = token.name;
+        let priceUnavailable = false;
+
+        if (!viewingCurrentMonth) {
+          // Check if this is an LP token
+          const lpPrice = historicalLpPrices.get(token.tokenId);
+          const tokenPrice = historicalTokenPrices.get(token.tokenId);
+
+          if (lpPrice) {
+            // LP token - use historical LP price
+            if (lpPrice.priceErg !== null && !lpPrice.unavailable) {
+              valueInErg = endingBalance * lpPrice.priceErg;
+              // Add pool type indicator to name
+              displayName = lpPrice.poolName + (lpPrice.poolType ? ` (${lpPrice.poolType})` : '');
+            } else {
+              valueInErg = 0;
+              priceUnavailable = true;
+              displayName = lpPrice.poolName + ' ⚠️';
+            }
+          } else if (tokenPrice) {
+            // Regular token - use historical token price
+            if (tokenPrice.priceErg !== null && !tokenPrice.unavailable) {
+              valueInErg = endingBalance * tokenPrice.priceErg;
+            } else {
+              valueInErg = 0;
+              priceUnavailable = true;
+              displayName = token.name + ' ⚠️';
+            }
+          } else {
+            // No historical price available
+            valueInErg = 0;
+            priceUnavailable = true;
+            displayName = token.name + ' ⚠️';
+          }
+        } else {
+          // Current month - check for LP pool type indicator from historical data
+          const lpPrice = historicalLpPrices.get(token.tokenId);
+          if (lpPrice?.poolType) {
+            displayName = token.name + (token.name.includes('LP') ? '' : ' LP') + ` (${lpPrice.poolType})`;
+          }
+        }
+
+        // Get pool type if it's an LP token
+        const lpData = historicalLpPrices.get(token.tokenId);
+        const poolType = lpData?.poolType || undefined;
+
         return {
-          token: token.name,
+          token: displayName,
           tokenId: token.tokenId,
-          amount: token.amount,
-          valueInErg: token.valueInErg, // ERG equivalent from Crux prices
+          amount: endingBalance,
+          valueInErg,
           change24h: 0,
           category: categorizeToken(token.name),
-          beginningBalance: token.amount - additions + reductions,
+          beginningBalance,
           additions,
           reductions,
-          endingBalance: token.amount,
+          endingBalance,
+          priceUnavailable, // Pass flag for UI to show warning
+          poolType, // N2T or T2T for LP tokens
         };
       }),
   ] : [];
 
-  // Calculate current values by category
-  const currentErgValue = holdings.filter(h => h.category === 'ERG').reduce((sum, h) => sum + h.valueInErg, 0);
-  const currentStablesValue = holdings.filter(h => h.category === 'Stables').reduce((sum, h) => sum + h.valueInErg, 0);
-  const currentLiquidityValue = holdings.filter(h => h.category === 'Liquidity/Lending').reduce((sum, h) => sum + h.valueInErg, 0);
-  const currentTokensValue = holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0);
+  // Calculate values by category for the SELECTED month
+  // For current month: uses live prices
+  // For historical months: uses historical prices from JSON files
+  const selectedMonthErgValue = holdings.filter(h => h.category === 'ERG').reduce((sum, h) => sum + h.valueInErg, 0);
+  const selectedMonthStablesValue = holdings.filter(h => h.category === 'Stables').reduce((sum, h) => sum + h.valueInErg, 0);
+  const selectedMonthLiquidityValue = holdings.filter(h => h.category === 'Liquidity/Lending').reduce((sum, h) => sum + h.valueInErg, 0);
+  const selectedMonthTokensValue = holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0);
 
   // Chart data - stacked area chart showing value breakdown by category
-  // For historical months, we only have ERG balance. Token values are shown for current month only.
+  // For the bar chart: ERG uses historical balances, tokens show selected month values at last position
+  // TODO: In future, could fetch historical prices for all 6 months to show full token history
   const chartLabels = balanceHistory.length > 0
     ? balanceHistory.map(h => h.month)
     : (balance !== null ? ['Current'] : []);
+
+  // Find index of selected month in the chart
+  const selectedMonthLabel = selectedMonth.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+  const selectedMonthIndex = chartLabels.findIndex(label => label === selectedMonthLabel);
 
   const chartData = {
     labels: chartLabels,
     erg: balanceHistory.length > 0
       ? balanceHistory.map(h => h.balance)
-      : (balance !== null ? [currentErgValue] : []),
+      : (balance !== null ? [selectedMonthErgValue] : []),
     stables: balanceHistory.length > 0
-      ? balanceHistory.map((_, i) => i === balanceHistory.length - 1 ? currentStablesValue : 0)
-      : (balance !== null ? [currentStablesValue] : []),
+      ? balanceHistory.map((_, i) => i === selectedMonthIndex ? selectedMonthStablesValue : 0)
+      : (balance !== null ? [selectedMonthStablesValue] : []),
     liquidity: balanceHistory.length > 0
-      ? balanceHistory.map((_, i) => i === balanceHistory.length - 1 ? currentLiquidityValue : 0)
-      : (balance !== null ? [currentLiquidityValue] : []),
+      ? balanceHistory.map((_, i) => i === selectedMonthIndex ? selectedMonthLiquidityValue : 0)
+      : (balance !== null ? [selectedMonthLiquidityValue] : []),
     tokens: balanceHistory.length > 0
-      ? balanceHistory.map((_, i) => i === balanceHistory.length - 1 ? currentTokensValue : 0)
-      : (balance !== null ? [currentTokensValue] : []),
+      ? balanceHistory.map((_, i) => i === selectedMonthIndex ? selectedMonthTokensValue : 0)
+      : (balance !== null ? [selectedMonthTokensValue] : []),
   };
 
-  // Pie chart data - distribution by category (ERG value)
+  // Pie chart data - distribution by category (ERG value) for SELECTED month
   const pieData = {
     labels: ['ERG', 'Stables', 'Tokens', 'LP Tokens'],
-    values: [currentErgValue, currentStablesValue, currentTokensValue, currentLiquidityValue],
+    values: [selectedMonthErgValue, selectedMonthStablesValue, selectedMonthTokensValue, selectedMonthLiquidityValue],
   };
 
   // Helper to check if a token ID is a CyberVerse token
