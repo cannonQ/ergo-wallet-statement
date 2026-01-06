@@ -124,6 +124,7 @@ function App() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [chartRange, setChartRange] = useState<3 | 6 | 12>(6); // months to show in chart
   const [transactionLimit, setTransactionLimit] = useState(20);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -294,7 +295,7 @@ function App() {
 
       // Fetch balance history for chart in background
       setLoadingHistory(true);
-      ergoApi.getMonthlyBalanceHistory(walletAddress, 6)
+      ergoApi.getMonthlyBalanceHistory(walletAddress, chartRange)
         .then(history => setBalanceHistory(history))
         .catch(err => console.error('Failed to load balance history:', err))
         .finally(() => setLoadingHistory(false));
@@ -330,7 +331,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTransactionsForMonth]);
+  }, [fetchTransactionsForMonth, chartRange]);
 
   const handleAddressSubmit = useCallback((walletAddress: string) => {
     setAddress(walletAddress);
@@ -345,6 +346,18 @@ function App() {
       fetchTransactionsForMonth(address, month, tokens);
     }
   }, [address, fetchTransactionsForMonth, tokens]);
+
+  // Handle chart range changes - re-fetch balance history only
+  const handleChartRangeChange = useCallback((range: 3 | 6 | 12) => {
+    setChartRange(range);
+    if (address) {
+      setLoadingHistory(true);
+      ergoApi.getMonthlyBalanceHistory(address, range)
+        .then(history => setBalanceHistory(history))
+        .catch(err => console.error('Failed to load balance history:', err))
+        .finally(() => setLoadingHistory(false));
+    }
+  }, [address]);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
@@ -579,7 +592,12 @@ function App() {
         <>
           {/* Charts row */}
           <div className="grid md:grid-cols-[60%_40%] gap-4 mb-6">
-            <Chart data={chartData} />
+            <Chart
+              data={chartData}
+              range={chartRange}
+              onRangeChange={handleChartRangeChange}
+              isLoading={loadingHistory}
+            />
             <PieChart data={pieData} />
           </div>
 
