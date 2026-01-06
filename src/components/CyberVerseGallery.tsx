@@ -1,7 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Gamepad2, ExternalLink, ChevronLeft, ChevronRight, Image } from 'lucide-react';
-
-const PAGE_SIZE = 20;
+import React, { useState, useMemo, useEffect } from 'react';
+import { Gamepad2, ExternalLink, ChevronLeft, ChevronRight, Image, Loader2 } from 'lucide-react';
 
 interface NFT {
   tokenId: string;
@@ -57,6 +55,25 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<CyberVerseCategory>('All');
   const [page, setPage] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Responsive items per page: 6 on mobile, 20 on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      setItemsPerPage(window.innerWidth < 768 ? 6 : 20);
+      setPage(0); // Reset to first page when changing screen size
+    };
+
+    handleResize(); // Set initial value
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Reset page when category changes
+  const handleCategoryChange = (category: CyberVerseCategory) => {
+    setSelectedCategory(category);
+    setPage(0);
+  };
 
   const categories: CyberVerseCategory[] = ['All', 'Gen2', 'Gen3', 'Car', 'Apartment', 'Pet', 'Skins', 'VIPCard', 'Emote', 'Audio', 'JackHammer', 'Egg'];
 
@@ -115,16 +132,11 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   }, [cyberverseNfts, selectedCategory]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredNfts.length / PAGE_SIZE);
-  const paginatedNfts = filteredNfts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(filteredNfts.length / itemsPerPage);
+  const paginatedNfts = filteredNfts.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
 
   const handlePrevPage = () => setPage(p => Math.max(0, p - 1));
   const handleNextPage = () => setPage(p => Math.min(totalPages - 1, p + 1));
-
-  const handleCategoryChange = (category: CyberVerseCategory) => {
-    setSelectedCategory(category);
-    setPage(0);
-  };
 
   // Category colors
   const getCategoryColor = (category: CyberVerseCategory | null) => {
@@ -220,6 +232,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <Gamepad2 className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-400" />
           <h2 className="text-base md:text-lg font-bold text-white">CyberVerse</h2>
+          {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
           <a
             href="https://playcyberverse.com/"
             target="_blank"
