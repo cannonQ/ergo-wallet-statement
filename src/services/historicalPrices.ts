@@ -49,10 +49,23 @@ export interface LpPriceRecord {
 }
 
 // Types for block heights data
+interface BlockHeightEntry {
+  year: number;
+  month: number;
+  date: string;
+  block_height: number;
+  timestamp_ms: number;
+  timestamp_utc: string;
+}
+
 interface BlockHeightsFile {
-  description: string;
-  generated: string;
-  months: Record<string, number>;
+  metadata: {
+    description: string;
+    generated: string;
+    total_months: number;
+    date_range: { start: string; end: string };
+  };
+  months: BlockHeightEntry[];
 }
 
 interface LpPricesFile {
@@ -215,13 +228,17 @@ class HistoricalPriceService {
           throw new Error(`Failed to load block heights: ${response.status}`);
         }
         this.blockHeightsData = await response.json();
-        console.log(`Loaded block heights for ${Object.keys(this.blockHeightsData?.months || {}).length} months`);
+        console.log(`Loaded block heights for ${this.blockHeightsData?.months?.length ?? 0} months`);
       } catch (error) {
         console.error('Error loading block heights:', error);
         this.blockHeightsData = {
-          description: '',
-          generated: '',
-          months: {}
+          metadata: {
+            description: '',
+            generated: '',
+            total_months: 0,
+            date_range: { start: '', end: '' }
+          },
+          months: []
         };
       }
     })();
@@ -579,15 +596,39 @@ class HistoricalPriceService {
     await this.loadBlockHeights();
 
     const monthKey = formatMonthKey(month);
-    return this.blockHeightsData?.months[monthKey] ?? null;
+    const entry = this.blockHeightsData?.months.find(m => m.date === monthKey);
+    return entry?.block_height ?? null;
   }
 
   /**
-   * Get all available block heights
+   * Get full block height entry for a specific month (includes timestamp, etc.)
+   */
+  async getBlockHeightEntry(month: Date): Promise<BlockHeightEntry | null> {
+    await this.loadBlockHeights();
+
+    const monthKey = formatMonthKey(month);
+    return this.blockHeightsData?.months.find(m => m.date === monthKey) ?? null;
+  }
+
+  /**
+   * Get all available block heights as a simple date -> height map
    */
   async getBlockHeights(): Promise<Record<string, number>> {
     await this.loadBlockHeights();
-    return this.blockHeightsData?.months ?? {};
+
+    const result: Record<string, number> = {};
+    for (const entry of this.blockHeightsData?.months || []) {
+      result[entry.date] = entry.block_height;
+    }
+    return result;
+  }
+
+  /**
+   * Get all block height entries with full details
+   */
+  async getBlockHeightEntries(): Promise<BlockHeightEntry[]> {
+    await this.loadBlockHeights();
+    return this.blockHeightsData?.months ?? [];
   }
 
   /**
