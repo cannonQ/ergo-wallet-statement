@@ -119,12 +119,20 @@ function App() {
   const [historicalLpPrices, setHistoricalLpPrices] = useState<Map<string, LpPriceResult>>(new Map());
   const [loadingHistoricalPrices, setLoadingHistoricalPrices] = useState(false);
 
+  // Chart category values per month (for historical chart data)
+  interface ChartCategoryValues {
+    stables: number;
+    liquidity: number;
+    tokens: number;
+  }
+  const [chartCategoryHistory, setChartCategoryHistory] = useState<Map<string, ChartCategoryValues>>(new Map());
+
   // UI state
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [chartRange, setChartRange] = useState<3 | 6 | 12>(6); // months to show in chart
+  const [chartRange, setChartRange] = useState<3 | 6 | 12>(3); // months to show in chart
   const [transactionLimit, setTransactionLimit] = useState(20);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -161,6 +169,92 @@ function App() {
       })
       .catch(err => console.error('Failed to load token blacklist:', err));
   }, []);
+
+  // Calculate chart category values for all months when balance history or tokens change
+  useEffect(() => {
+    if (balanceHistory.length === 0 || tokens.length === 0) {
+      setChartCategoryHistory(new Map());
+      return;
+    }
+
+    const calculateChartCategoryValues = async () => {
+      const now = new Date();
+      const currentMonthLabel = now.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+
+      // Get LP token IDs once
+      const lpTokenIds = await historicalPrices.getLpTokenIds();
+
+      // Filter tokens (exclude artwork and blacklisted)
+      const validTokens = tokens.filter(t => !t.isArtwork && !blacklistedTokens.has(t.tokenId));
+      const tokenIds = validTokens.map(t => t.tokenId);
+      const lpIds = tokenIds.filter(id => lpTokenIds.has(id));
+      const regularTokenIds = tokenIds.filter(id => !lpTokenIds.has(id));
+
+      const categoryMap = new Map<string, ChartCategoryValues>();
+
+      // Process each month in balance history
+      for (const monthData of balanceHistory) {
+        // For current month, use live prices from tokens state
+        if (monthData.month === currentMonthLabel) {
+          let stables = 0, liquidity = 0, tokenVal = 0;
+
+          for (const token of validTokens) {
+            const category = categorizeToken(token.name, token.tokenId);
+            if (category === 'Stables') stables += token.valueInErg;
+            else if (category === 'Liquidity/Lending') liquidity += token.valueInErg;
+            else if (category === 'Tokens') tokenVal += token.valueInErg;
+          }
+
+          categoryMap.set(monthData.month, { stables, liquidity, tokens: tokenVal });
+        } else {
+          // For historical months, fetch prices and calculate
+          // Parse month label back to Date (e.g., "Dec '24" -> 2024-12-01)
+          const [monthStr, yearStr] = monthData.month.split(' ');
+          const monthIndex = new Date(Date.parse(monthStr + ' 1, 2000')).getMonth();
+          const year = 2000 + parseInt(yearStr.replace("'", ''), 10);
+          const monthDate = new Date(year, monthIndex, 1);
+
+          try {
+            // Fetch historical prices for this month
+            const [tokenPriceResults, lpPriceResults] = await Promise.all([
+              historicalPrices.getTokenPrices(regularTokenIds, monthDate),
+              historicalPrices.getLpPrices(lpIds, monthDate),
+            ]);
+
+            let stables = 0, liquidity = 0, tokenVal = 0;
+
+            for (const token of validTokens) {
+              const category = categorizeToken(token.name, token.tokenId);
+              let valueInErg = 0;
+
+              // Check if LP token
+              const lpPrice = lpPriceResults.get(token.tokenId);
+              const tokenPrice = tokenPriceResults.get(token.tokenId);
+
+              if (lpPrice && lpPrice.priceErg !== null && !lpPrice.unavailable) {
+                valueInErg = token.amount * lpPrice.priceErg;
+              } else if (tokenPrice && tokenPrice.priceErg !== null && !tokenPrice.unavailable) {
+                valueInErg = token.amount * tokenPrice.priceErg;
+              }
+
+              if (category === 'Stables') stables += valueInErg;
+              else if (category === 'Liquidity/Lending') liquidity += valueInErg;
+              else if (category === 'Tokens') tokenVal += valueInErg;
+            }
+
+            categoryMap.set(monthData.month, { stables, liquidity, tokens: tokenVal });
+          } catch (err) {
+            console.error(`Failed to fetch historical prices for ${monthData.month}:`, err);
+            categoryMap.set(monthData.month, { stables: 0, liquidity: 0, tokens: 0 });
+          }
+        }
+      }
+
+      setChartCategoryHistory(categoryMap);
+    };
+
+    calculateChartCategoryValues();
+  }, [balanceHistory, tokens, blacklistedTokens]);
 
   // Fetch transactions and token movements for selected month
   const fetchTransactionsForMonth = useCallback(async (walletAddress: string, month: Date, currentTokens: Token[] = []) => {
@@ -493,15 +587,10 @@ function App() {
   const selectedMonthTokensValue = holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0);
 
   // Chart data - stacked area chart showing value breakdown by category
-  // For the bar chart: ERG uses historical balances, tokens show selected month values at last position
-  // TODO: In future, could fetch historical prices for all 6 months to show full token history
+  // Uses historical prices from JSON files for all months (calculated in useEffect)
   const chartLabels = balanceHistory.length > 0
     ? balanceHistory.map(h => h.month)
     : (balance !== null ? ['Current'] : []);
-
-  // Find index of selected month in the chart
-  const selectedMonthLabel = selectedMonth.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-  const selectedMonthIndex = chartLabels.findIndex(label => label === selectedMonthLabel);
 
   const chartData = {
     labels: chartLabels,
@@ -509,13 +598,13 @@ function App() {
       ? balanceHistory.map(h => h.balance)
       : (balance !== null ? [selectedMonthErgValue] : []),
     stables: balanceHistory.length > 0
-      ? balanceHistory.map((_, i) => i === selectedMonthIndex ? selectedMonthStablesValue : 0)
+      ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.stables ?? 0)
       : (balance !== null ? [selectedMonthStablesValue] : []),
     liquidity: balanceHistory.length > 0
-      ? balanceHistory.map((_, i) => i === selectedMonthIndex ? selectedMonthLiquidityValue : 0)
+      ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.liquidity ?? 0)
       : (balance !== null ? [selectedMonthLiquidityValue] : []),
     tokens: balanceHistory.length > 0
-      ? balanceHistory.map((_, i) => i === selectedMonthIndex ? selectedMonthTokensValue : 0)
+      ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.tokens ?? 0)
       : (balance !== null ? [selectedMonthTokensValue] : []),
   };
 
