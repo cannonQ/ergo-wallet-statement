@@ -1,7 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Image, ExternalLink, Music, Video, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
-
-const PAGE_SIZE = 20;
+import React, { useState, useMemo, useEffect } from 'react';
+import { Image, ExternalLink, Music, Video, Palette, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 interface NFT {
   tokenId: string;
@@ -21,7 +19,20 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
   const [page, setPage] = useState(0);
   // Track which images have failed to load
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const types = ['All', 'NFT', 'Audio', 'Video', 'Artwork Collection'];
+
+  // Responsive items per page: 6 on mobile, 20 on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      setItemsPerPage(window.innerWidth < 768 ? 6 : 20);
+      setPage(0); // Reset to first page when changing screen size
+    };
+
+    handleResize(); // Set initial value
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const openExplorer = (tokenId: string) => {
     window.open(`https://ergexplorer.com/token#${tokenId}`, '_blank');
@@ -47,8 +58,8 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
   }, [nfts, selectedType]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredNfts.length / PAGE_SIZE);
-  const paginatedNfts = filteredNfts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(filteredNfts.length / itemsPerPage);
+  const paginatedNfts = filteredNfts.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
 
   const handlePrevPage = () => setPage(p => Math.max(0, p - 1));
   const handleNextPage = () => setPage(p => Math.min(totalPages - 1, p + 1));
@@ -120,6 +131,7 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
         <div className="flex items-center gap-2">
           <Image className="w-4 sm:w-5 h-4 sm:h-5 text-pink-400" />
           <h2 className="text-base md:text-lg font-bold text-white">NFTs & Collectibles</h2>
+          {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
         </div>
 
         {/* Mobile: Compact dropdown filter */}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, addDays } from 'date-fns';
+import { Loader2 } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -13,6 +14,7 @@ interface TransactionHeatmapProps {
   selectedMonth: Date;
   selectedDate?: Date | null;
   onDateSelect?: (date: Date | null) => void;
+  isLoading?: boolean;
 }
 
 export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
@@ -20,6 +22,7 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
   selectedMonth,
   selectedDate,
   onDateSelect,
+  isLoading = false,
 }) => {
   // Group transactions by date
   const transactionsByDate = useMemo(() => {
@@ -90,7 +93,10 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
   return (
     <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 sm:mb-4">
-        <h2 className="text-base sm:text-lg font-bold text-white">Transaction Activity</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-white">Transaction Activity</h2>
+          {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
+        </div>
         <span className="text-gray-400 text-xs sm:text-sm">{monthYear}</span>
       </div>
 

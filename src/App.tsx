@@ -8,7 +8,7 @@ import { WalletSummary } from './components/WalletSummary';
 import { Holdings } from './components/Holdings';
 import { TransactionHistory } from './components/TransactionHistory';
 import { TransactionHeatmap } from './components/TransactionHeatmap';
-import { DemurrageAlert } from './components/DemurrageAlert';
+import { WalletMaintenance } from './components/WalletMaintenance';
 import { TopHodls } from './components/TopHodls';
 import { NFTGallery } from './components/NFTGallery';
 import { CyberVerseGallery } from './components/CyberVerseGallery';
@@ -765,39 +765,51 @@ function App() {
             <PieChart data={pieData} />
           </div>
 
-          {/* Summary, Top Hodls, and Demurrage row */}
+          {/* Summary, Top Hodls, and Wallet Maintenance row */}
           <div id="summary" className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 md:gap-4 mb-4 md:mb-6">
             <WalletSummary holdings={holdings} />
             <TopHodls holdings={holdings} />
-            <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
+            <WalletMaintenance
+              boxes={demurrageBoxes}
+              holdings={holdings}
+              blacklistedTokens={blacklistedTokens}
+              isLoading={loadingDemurrage}
+            />
           </div>
 
-          {/* Holdings table */}
-          <div id="holdings" className="mb-4 md:mb-6">
-            <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
-          </div>
-
-          {/* Transaction Activity */}
-          <div id="heatmap" className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
-            <div id="transactions" className="lg:col-span-1">
-              <TransactionHeatmap
-                transactions={transactions}
-                selectedMonth={selectedMonth}
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-              />
+          {/* Holdings and Transaction Activity Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-[67%_33%] gap-4 md:gap-6 mb-4 md:mb-6">
+            {/* Holdings table - Left 67% */}
+            <div id="holdings">
+              <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
             </div>
-            <div className="lg:col-span-2">
-              <TransactionHistory
-                transactions={transactions}
-                total={totalTransactions}
-                isLoading={loadingTransactions}
-                isLoadingMore={loadingMoreTransactions}
-                hasMore={hasMoreTransactions}
-                onLoadMore={loadMoreTransactions}
-                selectedDate={selectedDate}
-                onClearDateFilter={() => setSelectedDate(null)}
-              />
+
+            {/* Transaction Stack - Right 33% */}
+            <div className="flex flex-col gap-4">
+              {/* Transaction Heatmap - Top 50% */}
+              <div id="heatmap" className="flex-1">
+                <TransactionHeatmap
+                  transactions={transactions}
+                  selectedMonth={selectedMonth}
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                  isLoading={loadingTransactions}
+                />
+              </div>
+
+              {/* Transaction History - Bottom 50% */}
+              <div id="transactions" className="flex-1">
+                <TransactionHistory
+                  transactions={transactions}
+                  total={totalTransactions}
+                  isLoading={loadingTransactions}
+                  isLoadingMore={loadingMoreTransactions}
+                  hasMore={hasMoreTransactions}
+                  onLoadMore={loadMoreTransactions}
+                  selectedDate={selectedDate}
+                  onClearDateFilter={() => setSelectedDate(null)}
+                />
+              </div>
             </div>
           </div>
 

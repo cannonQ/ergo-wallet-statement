@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowDownLeft, ArrowUpRight, History, ExternalLink, ChevronLeft, ChevronRight, X, ChevronDown } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, History, ExternalLink, ChevronLeft, ChevronRight, X, ChevronDown, Loader2 } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { formatNumber } from '../constants';
 
@@ -63,6 +63,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <History className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
           <h2 className="text-base sm:text-lg font-bold text-white">Recent Transactions</h2>
+          {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
           {selectedDate && (
             <div className="flex items-center bg-purple-600/30 text-purple-300 px-2 py-1 rounded text-xs">
               <span className="hidden sm:inline">{format(selectedDate, 'MMM d, yyyy')}</span>
@@ -113,7 +114,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
             {displayedTransactions.map((tx) => (
               <div
                 key={tx.id}

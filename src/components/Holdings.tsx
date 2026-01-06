@@ -157,7 +157,10 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
     <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
       <div className="flex flex-col gap-2 mb-3 md:mb-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base md:text-lg font-bold text-white">Wallet Details</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base md:text-lg font-bold text-white">Wallet Details</h2>
+            {loadingHistoricalPrices && <Loader2 size={16} className="animate-spin text-gray-400" />}
+          </div>
 
           {/* Mobile: Compact dropdown filter */}
           <select
