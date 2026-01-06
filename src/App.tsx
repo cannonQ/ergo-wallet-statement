@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
+import { Navbar } from './components/Navbar';
 import { Chart } from './components/Chart';
 import { PieChart } from './components/PieChart';
 import { WalletSummary } from './components/WalletSummary';
@@ -698,18 +699,34 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-50 bg-gray-800 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-gray-700">
-        <Header
-          address={address}
-          isOnline={isOnline}
-          isLoading={isLoading}
-          error={error}
-          selectedMonth={selectedMonth}
-          onAddressSubmit={handleAddressSubmit}
-          onMonthChange={handleMonthChange}
-        />
-      </div>
+      {/* Sticky navbar/header */}
+      {address ? (
+        // Compact navbar when wallet loaded
+        <div className="sticky top-0 z-50 bg-gray-800 shadow-lg border-b border-gray-700">
+          <Navbar
+            address={address}
+            isOnline={isOnline}
+            isLoading={isLoading}
+            error={error}
+            selectedMonth={selectedMonth}
+            onAddressSubmit={handleAddressSubmit}
+            onMonthChange={handleMonthChange}
+          />
+        </div>
+      ) : (
+        // Full header for landing page
+        <div className="sticky top-0 z-50 bg-gray-800 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-gray-700">
+          <Header
+            address={address}
+            isOnline={isOnline}
+            isLoading={isLoading}
+            error={error}
+            selectedMonth={selectedMonth}
+            onAddressSubmit={handleAddressSubmit}
+            onMonthChange={handleMonthChange}
+          />
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-auto px-4 md:px-6 pb-4 md:pb-6 pt-3 md:pt-4">
