@@ -155,16 +155,32 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
 
   return (
     <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
-      <div className="flex flex-col gap-3 md:gap-4 mb-4 md:mb-6">
-        <h2 className="text-lg md:text-xl font-bold text-white">Wallet Details</h2>
+      <div className="flex flex-col gap-2 mb-3 md:mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base md:text-lg font-bold text-white">Wallet Details</h2>
 
-        {/* Filter buttons - scrollable on mobile */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+          {/* Mobile: Compact dropdown filter */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
+          >
+            <option value="All">All</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category === 'Liquidity/Lending' ? 'Liquidity' : category}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Desktop: Filter buttons */}
+        <div className="hidden md:flex gap-2 flex-wrap">
           <button
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap flex-shrink-0 text-sm ${
+            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap text-sm ${
               selectedCategory === 'All'
                 ? 'bg-gray-600 text-white'
-                : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700 active:bg-gray-700'
+                : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700'
             }`}
             onClick={() => setSelectedCategory('All')}
           >
@@ -176,10 +192,10 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
             return (
               <button
                 key={category}
-                className={`px-3 py-1.5 rounded-lg transition-colors border whitespace-nowrap flex-shrink-0 text-sm ${
+                className={`px-3 py-1.5 rounded-lg transition-colors border whitespace-nowrap text-sm ${
                   isSelected
                     ? 'text-white'
-                    : 'text-gray-400 hover:text-white active:text-white'
+                    : 'text-gray-400 hover:text-white'
                 }`}
                 style={{
                   backgroundColor: isSelected ? colorConfig.bg : colorConfig.bgFaded,
@@ -195,11 +211,11 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
             placeholder="Search tokens..."
-            className="w-full bg-gray-800 text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-gray-600 text-sm"
+            className="w-full bg-gray-800 text-white pl-8 sm:pl-10 pr-3 py-1.5 sm:py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-gray-600 text-xs sm:text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
