@@ -217,7 +217,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   return (
     <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Gamepad2 className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-400" />
           <h2 className="text-base md:text-lg font-bold text-white">CyberVerse</h2>
           <a
@@ -229,23 +229,57 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
           >
             Play
           </a>
+          <a
+            href="https://www.cyberversewiki.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Wiki
+          </a>
         </div>
 
-        {/* Mobile: Compact dropdown filter */}
-        <select
-          value={selectedCategory}
-          onChange={(e) => handleCategoryChange(e.target.value as CyberVerseCategory)}
-          className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
-        >
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {categoryLabels[category]} {categoryCounts[category] > 0 && `(${categoryCounts[category]})`}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          {/* Mobile: Compact dropdown filter */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => handleCategoryChange(e.target.value as CyberVerseCategory)}
+            className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
+          >
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {categoryLabels[category]} {categoryCounts[category] > 0 && `(${categoryCounts[category]})`}
+              </option>
+            ))}
+          </select>
 
-        {/* Desktop: Item count */}
-        <span className="hidden md:block text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handlePrevPage}
+                disabled={page === 0}
+                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-400" />
+              </button>
+              <span className="text-gray-400 text-xs">
+                {page + 1}/{totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={page >= totalPages - 1}
+                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+          )}
+
+          {/* Desktop: Item count */}
+          <span className="hidden md:block text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
+        </div>
       </div>
 
       {/* Desktop: Category filter buttons */}
@@ -281,7 +315,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
               className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all cursor-pointer group"
               onClick={() => openExplorer(nft.tokenId)}
             >
-              {/* Artwork image with placeholder fallback */}
+              {/* Artwork image with badge overlay */}
               <div className={`aspect-square ${getCategoryColor(nft.cyberverseCategory)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
                 {(() => {
                   const imageUrl = getImageUrl(nft);
@@ -297,10 +331,23 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
                   }
                   return <Image className="w-8 h-8" />;
                 })()}
+
+                {/* Category badge on lower right corner */}
+                <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
+                  <span
+                    className="text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded bg-black/70 text-white"
+                    style={{
+                      textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 1.5px rgba(0,0,0,1)',
+                      backdropFilter: 'blur(4px)'
+                    }}
+                  >
+                    {nft.cyberverseCategory && categoryLabels[nft.cyberverseCategory]}
+                  </span>
+                </div>
               </div>
 
-              {/* Info */}
-              <div className="p-3">
+              {/* Info - desktop only */}
+              <div className="hidden md:block p-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-white font-medium text-sm truncate" title={nft.name}>
@@ -311,12 +358,6 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
                     </p>
                   </div>
                   <ExternalLink className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
-                </div>
-
-                <div className="mt-2">
-                  <span className={`text-xs px-2 py-0.5 rounded ${getCategoryColor(nft.cyberverseCategory)} text-white`}>
-                    {nft.cyberverseCategory && categoryLabels[nft.cyberverseCategory]}
-                  </span>
                 </div>
               </div>
             </div>
