@@ -1,0 +1,9 @@
+{
+  "metadata": {
+    "description": "Pool NFT IDs to exclude from processing",
+    "updated": "2026-01-06T00:00:00Z",
+    "total_blacklisted": 0
+  },
+  "pool_nft_ids": [],
+  "reasons": {}
+}
