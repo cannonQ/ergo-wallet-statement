@@ -39,10 +39,13 @@ This audit covers performance optimization and security review of the Ergo Walle
 
 **Implemented Fix:**
 - Added IndexedDB caching service (`src/services/indexedDbCache.ts`)
-- Modified `historicalPrices.ts` to cache LP and token price data for 7 days
-- Repeat visits now load from cache instantly instead of network
+- Modified `historicalPrices.ts` to cache LP and token price data
+- **Key Insight:** Historical data is IMMUTABLE - past months never change, only new months are appended
+- Cache TTL set to 1 year (effectively permanent)
+- Version-based invalidation (v5 in key) - cache auto-invalidates when data version changes
+- Stores `lastMonth` metadata for potential future smart refresh
 
-**Impact:** ~8MB saved on repeat visits, near-instant loading of historical data
+**Impact:** ~8MB saved on ALL repeat visits (cache essentially permanent), near-instant loading
 
 ### 1.3 API Call Patterns
 
@@ -88,7 +91,7 @@ This audit covers performance optimization and security review of the Ergo Walle
 | Token blacklist | In-memory | 1 hour |
 
 **Implemented Fix:**
-- Added IndexedDB caching for large JSON files (7-day TTL)
+- Added IndexedDB caching for large JSON files (1-year TTL, version-based invalidation)
 
 **Future Recommendations:**
 - Add service worker for offline support
