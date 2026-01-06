@@ -179,10 +179,23 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
                 }
                 return getIcon(nft.type);
               })()}
+
+              {/* Type badge on lower right corner */}
+              <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
+                <span
+                  className="text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded bg-black/70 text-white"
+                  style={{
+                    textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 1.5px rgba(0,0,0,1)',
+                    backdropFilter: 'blur(4px)'
+                  }}
+                >
+                  {nft.type}
+                </span>
+              </div>
             </div>
 
-            {/* Info */}
-            <div className="p-3">
+            {/* Info - desktop only */}
+            <div className="hidden md:block p-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-white font-medium text-sm truncate" title={nft.name}>
@@ -193,12 +206,6 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
                   </p>
                 </div>
                 <ExternalLink className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
-              </div>
-
-              <div className="mt-2">
-                <span className={`text-xs px-2 py-0.5 rounded ${getTypeColor(nft.type)} text-white`}>
-                  {nft.type}
-                </span>
               </div>
             </div>
           </div>

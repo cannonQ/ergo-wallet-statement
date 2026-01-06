@@ -107,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Desktop Navbar */}
       <nav className="hidden md:flex bg-gray-900 px-4 py-3 items-center justify-between gap-4 rounded-lg">
-        {/* Left: Title + Status */}
+        {/* Left: Title + Status + Change Wallet */}
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-white whitespace-nowrap">
             Ergo Wallet Statement
@@ -130,6 +130,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             )}
           </div>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-800"
+          >
+            Change Wallet
+          </button>
         </div>
 
         {/* Center: Month Picker */}
@@ -176,17 +182,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </nav>
 
-      {/* Mobile Drawer */}
+      {/* Drawer (Mobile + Desktop) */}
       {drawerOpen && (
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            className="fixed inset-0 bg-black/50 z-40"
             onClick={() => setDrawerOpen(false)}
           />
 
           {/* Drawer */}
-          <div className="fixed top-0 left-0 bottom-0 w-[85vw] max-w-[320px] bg-gray-900 z-50 md:hidden overflow-y-auto">
+          <div className="fixed top-0 left-0 bottom-0 w-[85vw] max-w-[400px] bg-gray-900 z-50 overflow-y-auto shadow-2xl">
             {/* Drawer Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-800">
               <h2 className="text-lg font-bold text-white">Menu</h2>
