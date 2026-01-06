@@ -216,58 +216,40 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
 
   return (
     <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
           <Gamepad2 className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-400" />
-          <h2 className="text-lg sm:text-xl font-bold text-white">CyberVerse</h2>
+          <h2 className="text-base md:text-lg font-bold text-white">CyberVerse</h2>
           <a
             href="https://playcyberverse.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs px-2 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+            className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             Play
           </a>
-          <a
-            href="https://www.cyberversewiki.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Wiki
-          </a>
         </div>
-        <div className="flex items-center space-x-3">
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={handlePrevPage}
-                disabled={page === 0}
-                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4 text-gray-400" />
-              </button>
-              <span className="text-gray-400 text-xs">
-                {page + 1}/{totalPages}
-              </span>
-              <button
-                onClick={handleNextPage}
-                disabled={page >= totalPages - 1}
-                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-          )}
-          <span className="text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
-        </div>
+
+        {/* Mobile: Compact dropdown filter */}
+        <select
+          value={selectedCategory}
+          onChange={(e) => handleCategoryChange(e.target.value as CyberVerseCategory)}
+          className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
+        >
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {categoryLabels[category]} {categoryCounts[category] > 0 && `(${categoryCounts[category]})`}
+            </option>
+          ))}
+        </select>
+
+        {/* Desktop: Item count */}
+        <span className="hidden md:block text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Category filter buttons */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Desktop: Category filter buttons */}
+      <div className="hidden md:flex flex-wrap gap-2 mb-4">
         {categories.map((category) => (
           <button
             key={category}

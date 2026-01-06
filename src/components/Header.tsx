@@ -31,6 +31,28 @@ export const Header: React.FC<HeaderProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // When wallet is loaded, show compact header; otherwise show full landing header
+  if (address) {
+    return (
+      <header className="bg-gray-900 p-2 sm:p-3 rounded-lg shadow-lg mb-3 md:mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <MonthPicker selectedMonth={selectedMonth} onChange={onMonthChange} />
+          <div className="bg-gray-800 rounded-lg p-1.5 sm:p-2 flex items-center gap-1.5">
+            <span className="text-white font-mono text-[10px] sm:text-xs">{`${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+            <button
+              onClick={copyAddress}
+              className="text-gray-400 hover:text-white transition-colors p-1 min-h-[36px] min-w-[36px] flex items-center justify-center sm:min-h-0 sm:min-w-0"
+              title="Copy address"
+            >
+              {copied ? <CheckCircle size={14} className="text-green-400" /> : <Copy size={14} />}
+            </button>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  // Landing header - full size with address input
   return (
     <header className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg mb-4 md:mb-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 md:gap-4">
@@ -54,23 +76,6 @@ export const Header: React.FC<HeaderProps> = ({
               </>
             )}
           </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
-          <MonthPicker selectedMonth={selectedMonth} onChange={onMonthChange} />
-          {address && (
-            <div className="bg-gray-800 rounded-lg p-2 flex items-center w-full sm:w-auto">
-              <span className="text-gray-400 text-xs sm:text-sm mr-2 hidden sm:inline">Address:</span>
-              <span className="text-white font-mono text-xs sm:text-sm">{`${address.slice(0, 8)}...${address.slice(-6)}`}</span>
-              <button
-                onClick={copyAddress}
-                className="ml-2 text-gray-400 hover:text-white transition-colors p-1"
-                title="Copy address"
-              >
-                {copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
