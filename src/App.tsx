@@ -99,7 +99,11 @@ function App() {
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [demurrageBoxes, setDemurrageBoxes] = useState<DemurrageBox[]>([]);
   const [nfts, setNfts] = useState<NFT[]>([]);
-  const [balanceHistory, setBalanceHistory] = useState<Array<{ month: string; balance: number }>>([]);
+  const [balanceHistory, setBalanceHistory] = useState<Array<{
+    month: string;
+    balance: number;
+    tokenHoldings: Map<string, number>;
+  }>>([]);
   const [cyberverseSets, setCyberverseSets] = useState<CyberVerseSets | null>(null);
   const [blacklistedTokens, setBlacklistedTokens] = useState<Set<string>>(new Set());
 
@@ -170,7 +174,7 @@ function App() {
       .catch(err => console.error('Failed to load token blacklist:', err));
   }, []);
 
-  // Calculate chart category values for all months when balance history or tokens change
+  // Calculate chart category values for all months using actual historical token holdings
   useEffect(() => {
     if (balanceHistory.length === 0 || tokens.length === 0) {
       setChartCategoryHistory(new Map());
@@ -184,11 +188,14 @@ function App() {
       // Get LP token IDs once
       const lpTokenIds = await historicalPrices.getLpTokenIds();
 
-      // Filter tokens (exclude artwork and blacklisted)
+      // Build a map of token names for categorization
+      const tokenNameMap = new Map<string, string>();
+      for (const token of tokens) {
+        tokenNameMap.set(token.tokenId, token.name);
+      }
+
+      // Filter valid tokens (exclude artwork and blacklisted) for current month
       const validTokens = tokens.filter(t => !t.isArtwork && !blacklistedTokens.has(t.tokenId));
-      const tokenIds = validTokens.map(t => t.tokenId);
-      const lpIds = tokenIds.filter(id => lpTokenIds.has(id));
-      const regularTokenIds = tokenIds.filter(id => !lpTokenIds.has(id));
 
       const categoryMap = new Map<string, ChartCategoryValues>();
 
@@ -207,12 +214,21 @@ function App() {
 
           categoryMap.set(monthData.month, { stables, liquidity, tokens: tokenVal });
         } else {
-          // For historical months, fetch prices and calculate
+          // For historical months, use actual historical holdings from transaction replay
           // Parse month label back to Date (e.g., "Dec '24" -> 2024-12-01)
           const [monthStr, yearStr] = monthData.month.split(' ');
           const monthIndex = new Date(Date.parse(monthStr + ' 1, 2000')).getMonth();
           const year = 2000 + parseInt(yearStr.replace("'", ''), 10);
           const monthDate = new Date(year, monthIndex, 1);
+
+          // Get token IDs that were held at this month-end (from transaction replay)
+          const historicalHoldings = monthData.tokenHoldings;
+          const historicalTokenIds = Array.from(historicalHoldings.keys())
+            .filter(id => !blacklistedTokens.has(id));
+
+          // Split into LP and regular tokens
+          const lpIds = historicalTokenIds.filter(id => lpTokenIds.has(id));
+          const regularTokenIds = historicalTokenIds.filter(id => !lpTokenIds.has(id));
 
           try {
             // Fetch historical prices for this month
@@ -223,18 +239,22 @@ function App() {
 
             let stables = 0, liquidity = 0, tokenVal = 0;
 
-            for (const token of validTokens) {
-              const category = categorizeToken(token.name, token.tokenId);
+            // Calculate values using actual historical holdings
+            for (const [tokenId, amount] of historicalHoldings) {
+              if (blacklistedTokens.has(tokenId)) continue;
+
+              const tokenName = tokenNameMap.get(tokenId) || '';
+              const category = categorizeToken(tokenName, tokenId);
               let valueInErg = 0;
 
               // Check if LP token
-              const lpPrice = lpPriceResults.get(token.tokenId);
-              const tokenPrice = tokenPriceResults.get(token.tokenId);
+              const lpPrice = lpPriceResults.get(tokenId);
+              const tokenPrice = tokenPriceResults.get(tokenId);
 
               if (lpPrice && lpPrice.priceErg !== null && !lpPrice.unavailable) {
-                valueInErg = token.amount * lpPrice.priceErg;
+                valueInErg = amount * lpPrice.priceErg;
               } else if (tokenPrice && tokenPrice.priceErg !== null && !tokenPrice.unavailable) {
-                valueInErg = token.amount * tokenPrice.priceErg;
+                valueInErg = amount * tokenPrice.priceErg;
               }
 
               if (category === 'Stables') stables += valueInErg;
@@ -387,9 +407,9 @@ function App() {
       // Fetch transactions for selected month in background (pass tokens for historical pricing)
       fetchTransactionsForMonth(walletAddress, month, fullBalance.tokens);
 
-      // Fetch balance history for chart in background
+      // Fetch balance history with token holdings for chart in background
       setLoadingHistory(true);
-      ergoApi.getMonthlyBalanceHistory(walletAddress, chartRange)
+      ergoApi.getMonthlyBalanceHistoryWithTokens(walletAddress, chartRange, fullBalance.tokens)
         .then(history => setBalanceHistory(history))
         .catch(err => console.error('Failed to load balance history:', err))
         .finally(() => setLoadingHistory(false));
@@ -441,17 +461,17 @@ function App() {
     }
   }, [address, fetchTransactionsForMonth, tokens]);
 
-  // Handle chart range changes - re-fetch balance history only
+  // Handle chart range changes - re-fetch balance history with tokens
   const handleChartRangeChange = useCallback((range: 3 | 6 | 12) => {
     setChartRange(range);
     if (address) {
       setLoadingHistory(true);
-      ergoApi.getMonthlyBalanceHistory(address, range)
+      ergoApi.getMonthlyBalanceHistoryWithTokens(address, range, tokens)
         .then(history => setBalanceHistory(history))
         .catch(err => console.error('Failed to load balance history:', err))
         .finally(() => setLoadingHistory(false));
     }
-  }, [address]);
+  }, [address, tokens]);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
