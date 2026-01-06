@@ -7,7 +7,14 @@
  * Data sources:
  * - /data/token_prices_lookup_v5.json - Token prices by month
  * - /data/lp_historical_prices_v5.json - LP token prices by month
+ *
+ * Optimization: Uses IndexedDB to cache JSON files for faster repeat visits.
  */
+
+import { indexedDbCache } from './indexedDbCache';
+
+// Cache TTL: 7 days for historical data (it doesn't change)
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 // Types for token price data
 interface TokenPriceEntry {
@@ -139,6 +146,7 @@ class HistoricalPriceService {
 
   /**
    * Load token prices JSON (lazy, only when needed)
+   * Uses IndexedDB cache for faster repeat visits
    */
   private async loadTokenPrices(): Promise<void> {
     if (this.tokenPricesData) return;
@@ -149,13 +157,29 @@ class HistoricalPriceService {
 
     this.tokenPricesLoading = (async () => {
       try {
-        console.log('Loading historical token prices...');
+        // Try IndexedDB cache first
+        if (indexedDbCache.isSupported()) {
+          const cached = await indexedDbCache.get<TokenPricesFile>('json', 'token_prices_v5');
+          if (cached) {
+            console.log('Loaded token prices from IndexedDB cache');
+            this.tokenPricesData = cached;
+            return;
+          }
+        }
+
+        console.log('Loading historical token prices from network...');
         const response = await fetch('/data/token_prices_lookup_v5.json');
         if (!response.ok) {
           throw new Error(`Failed to load token prices: ${response.status}`);
         }
         this.tokenPricesData = await response.json();
         console.log(`Loaded token prices for ${this.tokenPricesData?.tokens_count} tokens`);
+
+        // Cache in IndexedDB for future visits
+        if (indexedDbCache.isSupported() && this.tokenPricesData) {
+          indexedDbCache.set('json', 'token_prices_v5', this.tokenPricesData, CACHE_TTL)
+            .catch(err => console.error('Failed to cache token prices:', err));
+        }
       } catch (error) {
         console.error('Error loading token prices:', error);
         this.tokenPricesData = {
@@ -173,6 +197,7 @@ class HistoricalPriceService {
 
   /**
    * Load LP prices JSON (lazy, only when needed)
+   * Uses IndexedDB cache for faster repeat visits (6.9MB file)
    */
   private async loadLpPrices(): Promise<void> {
     if (this.lpPricesData) return;
@@ -183,13 +208,29 @@ class HistoricalPriceService {
 
     this.lpPricesLoading = (async () => {
       try {
-        console.log('Loading historical LP prices...');
+        // Try IndexedDB cache first (this is a 6.9MB file!)
+        if (indexedDbCache.isSupported()) {
+          const cached = await indexedDbCache.get<LpPricesFile>('json', 'lp_prices_v5');
+          if (cached) {
+            console.log('Loaded LP prices from IndexedDB cache');
+            this.lpPricesData = cached;
+            return;
+          }
+        }
+
+        console.log('Loading historical LP prices from network...');
         const response = await fetch('/data/lp_historical_prices_v5.json');
         if (!response.ok) {
           throw new Error(`Failed to load LP prices: ${response.status}`);
         }
         this.lpPricesData = await response.json();
         console.log(`Loaded LP prices: ${this.lpPricesData?.metadata.total_records} records`);
+
+        // Cache in IndexedDB for future visits
+        if (indexedDbCache.isSupported() && this.lpPricesData) {
+          indexedDbCache.set('json', 'lp_prices_v5', this.lpPricesData, CACHE_TTL)
+            .catch(err => console.error('Failed to cache LP prices:', err));
+        }
       } catch (error) {
         console.error('Error loading LP prices:', error);
         this.lpPricesData = {

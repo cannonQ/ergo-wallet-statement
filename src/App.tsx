@@ -74,15 +74,32 @@ const STABLECOIN_TOKEN_IDS = new Set([
   '85763f3893ddd8f7f820473ed0dcc3c40aa8398ec6075a8990f250b9d270e9b3', // CLB USE
 ]);
 
-// Categorize tokens based on token ID and name
+// Memoized token categorization cache
+const categoryCache = new Map<string, Holding['category']>();
+
+// Categorize tokens based on token ID and name (with caching for performance)
 const categorizeToken = (name: string, tokenId?: string): Holding['category'] => {
+  const cacheKey = `${tokenId || ''}_${name}`;
+  const cached = categoryCache.get(cacheKey);
+  if (cached) return cached;
+
   const nameLower = name.toLowerCase();
-  if (nameLower === 'erg') return 'ERG';
-  // Check stables by token ID first (most reliable)
-  if (tokenId && STABLECOIN_TOKEN_IDS.has(tokenId)) return 'Stables';
-  // LP tokens
-  if (nameLower.includes('lp') || nameLower.includes('liquidity') || nameLower.includes('lending')) return 'Liquidity/Lending';
-  return 'Tokens';
+  let category: Holding['category'];
+
+  if (nameLower === 'erg') {
+    category = 'ERG';
+  } else if (tokenId && STABLECOIN_TOKEN_IDS.has(tokenId)) {
+    // Check stables by token ID first (most reliable)
+    category = 'Stables';
+  } else if (nameLower.includes('lp') || nameLower.includes('liquidity') || nameLower.includes('lending')) {
+    // LP tokens
+    category = 'Liquidity/Lending';
+  } else {
+    category = 'Tokens';
+  }
+
+  categoryCache.set(cacheKey, category);
+  return category;
 };
 
 function App() {
@@ -497,14 +514,14 @@ function App() {
   // Check if we're viewing current month vs historical
   const viewingCurrentMonth = isCurrentMonth(selectedMonth);
 
-  // Convert tokens to Holdings format for the original components
-  // For historical months, use historical prices from JSON; for current month, use live prices
-  // Get ERG movements for the month (stored with pseudo ID '__ERG__')
-  const ergMovement = tokenMovements.get('__ERG__') || { additions: 0, reductions: 0 };
+  // Memoized holdings calculation - expensive operation that should not run on every render
+  const holdings: Holding[] = useMemo(() => {
+    if (balance === null) return [];
 
-  const holdings: Holding[] = balance !== null ? [
-    // ERG holding - use selected month's balance
-    {
+    // Get ERG movements for the month (stored with pseudo ID '__ERG__')
+    const ergMovement = tokenMovements.get('__ERG__') || { additions: 0, reductions: 0 };
+
+    const ergHolding: Holding = {
       token: 'ERG',
       tokenId: '', // ERG has no token ID
       amount: selectedMonthBalance,
@@ -515,12 +532,13 @@ function App() {
       additions: ergMovement.additions,
       reductions: ergMovement.reductions,
       endingBalance: selectedMonthBalance,
-    },
+    };
+
     // Token holdings with ERG values
     // For current month: use live Crux prices
     // For historical months: use historical prices from JSON files
     // Filter out EIP-4 artwork tokens and blacklisted NSFW/scam tokens
-    ...tokens
+    const tokenHoldings = tokens
       .filter(token => !token.isArtwork && !blacklistedTokens.has(token.tokenId))
       .map(token => {
         // Get movement for this token, adjusting for decimals
@@ -595,44 +613,60 @@ function App() {
           priceUnavailable, // Pass flag for UI to show warning
           poolType, // N2T or T2T for LP tokens
         };
-      }),
-  ] : [];
+      });
 
-  // Calculate values by category for the SELECTED month
+    return [ergHolding, ...tokenHoldings];
+  }, [balance, selectedMonthBalance, tokens, tokenMovements, viewingCurrentMonth, historicalLpPrices, historicalTokenPrices, blacklistedTokens]);
+
+  // Memoized category values for the SELECTED month
   // For current month: uses live prices
   // For historical months: uses historical prices from JSON files
-  const selectedMonthErgValue = holdings.filter(h => h.category === 'ERG').reduce((sum, h) => sum + h.valueInErg, 0);
-  const selectedMonthStablesValue = holdings.filter(h => h.category === 'Stables').reduce((sum, h) => sum + h.valueInErg, 0);
-  const selectedMonthLiquidityValue = holdings.filter(h => h.category === 'Liquidity/Lending').reduce((sum, h) => sum + h.valueInErg, 0);
-  const selectedMonthTokensValue = holdings.filter(h => h.category === 'Tokens').reduce((sum, h) => sum + h.valueInErg, 0);
+  const { selectedMonthErgValue, selectedMonthStablesValue, selectedMonthLiquidityValue, selectedMonthTokensValue } = useMemo(() => {
+    let erg = 0, stables = 0, liquidity = 0, tokens = 0;
+    for (const h of holdings) {
+      switch (h.category) {
+        case 'ERG': erg += h.valueInErg; break;
+        case 'Stables': stables += h.valueInErg; break;
+        case 'Liquidity/Lending': liquidity += h.valueInErg; break;
+        case 'Tokens': tokens += h.valueInErg; break;
+      }
+    }
+    return {
+      selectedMonthErgValue: erg,
+      selectedMonthStablesValue: stables,
+      selectedMonthLiquidityValue: liquidity,
+      selectedMonthTokensValue: tokens,
+    };
+  }, [holdings]);
 
-  // Chart data - stacked area chart showing value breakdown by category
-  // Uses historical prices from JSON files for all months (calculated in useEffect)
-  const chartLabels = balanceHistory.length > 0
-    ? balanceHistory.map(h => h.month)
-    : (balance !== null ? ['Current'] : []);
+  // Memoized chart data - avoids expensive recalculation on unrelated state changes
+  const chartData = useMemo(() => {
+    const chartLabels = balanceHistory.length > 0
+      ? balanceHistory.map(h => h.month)
+      : (balance !== null ? ['Current'] : []);
 
-  const chartData = {
-    labels: chartLabels,
-    erg: balanceHistory.length > 0
-      ? balanceHistory.map(h => h.balance)
-      : (balance !== null ? [selectedMonthErgValue] : []),
-    stables: balanceHistory.length > 0
-      ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.stables ?? 0)
-      : (balance !== null ? [selectedMonthStablesValue] : []),
-    liquidity: balanceHistory.length > 0
-      ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.liquidity ?? 0)
-      : (balance !== null ? [selectedMonthLiquidityValue] : []),
-    tokens: balanceHistory.length > 0
-      ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.tokens ?? 0)
-      : (balance !== null ? [selectedMonthTokensValue] : []),
-  };
+    return {
+      labels: chartLabels,
+      erg: balanceHistory.length > 0
+        ? balanceHistory.map(h => h.balance)
+        : (balance !== null ? [selectedMonthErgValue] : []),
+      stables: balanceHistory.length > 0
+        ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.stables ?? 0)
+        : (balance !== null ? [selectedMonthStablesValue] : []),
+      liquidity: balanceHistory.length > 0
+        ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.liquidity ?? 0)
+        : (balance !== null ? [selectedMonthLiquidityValue] : []),
+      tokens: balanceHistory.length > 0
+        ? balanceHistory.map(h => chartCategoryHistory.get(h.month)?.tokens ?? 0)
+        : (balance !== null ? [selectedMonthTokensValue] : []),
+    };
+  }, [balanceHistory, balance, selectedMonthErgValue, selectedMonthStablesValue, selectedMonthLiquidityValue, selectedMonthTokensValue, chartCategoryHistory]);
 
-  // Pie chart data - distribution by category (ERG value) for SELECTED month
-  const pieData = {
+  // Memoized pie chart data - distribution by category (ERG value) for SELECTED month
+  const pieData = useMemo(() => ({
     labels: ['ERG', 'Stables', 'Tokens', 'LP Tokens'],
     values: [selectedMonthErgValue, selectedMonthStablesValue, selectedMonthTokensValue, selectedMonthLiquidityValue],
-  };
+  }), [selectedMonthErgValue, selectedMonthStablesValue, selectedMonthTokensValue, selectedMonthLiquidityValue]);
 
   // Helper to check if a token ID is a CyberVerse token
   const isCyberverseToken = useCallback((tokenId: string): boolean => {
