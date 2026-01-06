@@ -13,6 +13,7 @@ import { CyberVerseGallery } from './components/CyberVerseGallery';
 import { AlertSystem } from './components/AlertSystem';
 import { ergoApi } from './services/ergoApi';
 import { historicalPrices, isCurrentMonth, type LpPriceResult, type TokenPriceResult } from './services/historicalPrices';
+import { tokenBlacklist } from './services/tokenBlacklist';
 import type { Alert, Holding } from './types';
 
 interface Token {
@@ -100,6 +101,7 @@ function App() {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [balanceHistory, setBalanceHistory] = useState<Array<{ month: string; balance: number }>>([]);
   const [cyberverseSets, setCyberverseSets] = useState<CyberVerseSets | null>(null);
+  const [blacklistedTokens, setBlacklistedTokens] = useState<Set<string>>(new Set());
 
   // Loading states for individual sections
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -147,6 +149,16 @@ function App() {
         });
       })
       .catch(err => console.error('Failed to load CyberVerse IDs:', err));
+  }, []);
+
+  // Load NSFW/Scam token blacklist on mount
+  useEffect(() => {
+    tokenBlacklist.getBlacklistedTokenIds()
+      .then(blacklist => {
+        setBlacklistedTokens(blacklist);
+        console.log(`Loaded ${blacklist.size} blacklisted tokens`);
+      })
+      .catch(err => console.error('Failed to load token blacklist:', err));
   }, []);
 
   // Fetch transactions and token movements for selected month
@@ -380,9 +392,9 @@ function App() {
     // Token holdings with ERG values
     // For current month: use live Crux prices
     // For historical months: use historical prices from JSON files
-    // Filter out EIP-4 artwork tokens - they should only appear in NFT Gallery
+    // Filter out EIP-4 artwork tokens and blacklisted NSFW/scam tokens
     ...tokens
-      .filter(token => !token.isArtwork)
+      .filter(token => !token.isArtwork && !blacklistedTokens.has(token.tokenId))
       .map(token => {
         // Get movement for this token, adjusting for decimals
         const rawMovement = tokenMovements.get(token.tokenId) || { additions: 0, reductions: 0 };
@@ -518,10 +530,15 @@ function App() {
     );
   }, [cyberverseSets]);
 
-  // Filter out CyberVerse NFTs from the regular NFT gallery
+  // Filter out CyberVerse NFTs and blacklisted tokens from the regular NFT gallery
   const nonCyberverseNfts = useMemo(() => {
-    return nfts.filter(nft => !isCyberverseToken(nft.tokenId));
-  }, [nfts, isCyberverseToken]);
+    return nfts.filter(nft => !isCyberverseToken(nft.tokenId) && !blacklistedTokens.has(nft.tokenId));
+  }, [nfts, isCyberverseToken, blacklistedTokens]);
+
+  // Filter blacklisted tokens from all NFTs (for CyberVerse gallery)
+  const safeNfts = useMemo(() => {
+    return nfts.filter(nft => !blacklistedTokens.has(nft.tokenId));
+  }, [nfts, blacklistedTokens]);
 
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
@@ -605,7 +622,7 @@ function App() {
           {/* CyberVerse Gallery */}
           <div className="mb-6">
             <CyberVerseGallery
-              nfts={nfts}
+              nfts={safeNfts}
               cyberverseSets={cyberverseSets}
               isLoading={loadingNFTs}
             />
