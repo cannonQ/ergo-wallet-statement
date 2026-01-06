@@ -1,7 +1,400 @@
-{
-  "description": "Exact last block height of each month (UTC)",
-  "generated": "2026-01-05T18:47:19.475331+00:00",
-  "months": {
+  {
+  "metadata": {
+    "description": "Month-end block heights for Ergo blockchain",
+    "generated": "2026-01-06T07:43:17.626669Z",
+    "total_months": 48,
+    "date_range": {
+      "start": "2022-01-31",
+      "end": "2025-12-31"
+    }
+  },
+  "months": [
+    {
+      "year": 2022,
+      "month": 1,
+      "date": "2022-01-31",
+      "block_height": 676233,
+      "timestamp_ms": 1643673541601,
+      "timestamp_utc": "2022-01-31T23:59:01Z"
+    },
+    {
+      "year": 2022,
+      "month": 2,
+      "date": "2022-02-28",
+      "block_height": 696351,
+      "timestamp_ms": 1646092767840,
+      "timestamp_utc": "2022-02-28T23:59:27Z"
+    },
+    {
+      "year": 2022,
+      "month": 3,
+      "date": "2022-03-31",
+      "block_height": 718155,
+      "timestamp_ms": 1648771176262,
+      "timestamp_utc": "2022-03-31T23:59:36Z"
+    },
+    {
+      "year": 2022,
+      "month": 4,
+      "date": "2022-04-30",
+      "block_height": 739781,
+      "timestamp_ms": 1651363115570,
+      "timestamp_utc": "2022-04-30T23:58:35Z"
+    },
+    {
+      "year": 2022,
+      "month": 5,
+      "date": "2022-05-31",
+      "block_height": 762108,
+      "timestamp_ms": 1654041463022,
+      "timestamp_utc": "2022-05-31T23:57:43Z"
+    },
+    {
+      "year": 2022,
+      "month": 6,
+      "date": "2022-06-30",
+      "block_height": 783655,
+      "timestamp_ms": 1656633570998,
+      "timestamp_utc": "2022-06-30T23:59:30Z"
+    },
+    {
+      "year": 2022,
+      "month": 7,
+      "date": "2022-07-31",
+      "block_height": 805846,
+      "timestamp_ms": 1659311743764,
+      "timestamp_utc": "2022-07-31T23:55:43Z"
+    },
+    {
+      "year": 2022,
+      "month": 8,
+      "date": "2022-08-31",
+      "block_height": 828423,
+      "timestamp_ms": 1661990393241,
+      "timestamp_utc": "2022-08-31T23:59:53Z"
+    },
+    {
+      "year": 2022,
+      "month": 9,
+      "date": "2022-09-30",
+      "block_height": 844439,
+      "timestamp_ms": 1664582245803,
+      "timestamp_utc": "2022-09-30T23:57:25Z"
+    },
+    {
+      "year": 2022,
+      "month": 10,
+      "date": "2022-10-31",
+      "block_height": 864992,
+      "timestamp_ms": 1667260738203,
+      "timestamp_utc": "2022-10-31T23:58:58Z"
+    },
+    {
+      "year": 2022,
+      "month": 11,
+      "date": "2022-11-30",
+      "block_height": 886306,
+      "timestamp_ms": 1669852669978,
+      "timestamp_utc": "2022-11-30T23:57:49Z"
+    },
+    {
+      "year": 2022,
+      "month": 12,
+      "date": "2022-12-31",
+      "block_height": 908425,
+      "timestamp_ms": 1672531198800,
+      "timestamp_utc": "2022-12-31T23:59:58Z"
+    },
+    {
+      "year": 2023,
+      "month": 1,
+      "date": "2023-01-31",
+      "block_height": 930524,
+      "timestamp_ms": 1675209561970,
+      "timestamp_utc": "2023-01-31T23:59:21Z"
+    },
+    {
+      "year": 2023,
+      "month": 2,
+      "date": "2023-02-28",
+      "block_height": 950483,
+      "timestamp_ms": 1677628782772,
+      "timestamp_utc": "2023-02-28T23:59:42Z"
+    },
+    {
+      "year": 2023,
+      "month": 3,
+      "date": "2023-03-31",
+      "block_height": 972606,
+      "timestamp_ms": 1680306820311,
+      "timestamp_utc": "2023-03-31T23:53:40Z"
+    },
+    {
+      "year": 2023,
+      "month": 4,
+      "date": "2023-04-30",
+      "block_height": 993946,
+      "timestamp_ms": 1682898650439,
+      "timestamp_utc": "2023-04-30T23:50:50Z"
+    },
+    {
+      "year": 2023,
+      "month": 5,
+      "date": "2023-05-31",
+      "block_height": 1015937,
+      "timestamp_ms": 1685577516498,
+      "timestamp_utc": "2023-05-31T23:58:36Z"
+    },
+    {
+      "year": 2023,
+      "month": 6,
+      "date": "2023-06-30",
+      "block_height": 1037280,
+      "timestamp_ms": 1688169524041,
+      "timestamp_utc": "2023-06-30T23:58:44Z"
+    },
+    {
+      "year": 2023,
+      "month": 7,
+      "date": "2023-07-31",
+      "block_height": 1059238,
+      "timestamp_ms": 1690847716865,
+      "timestamp_utc": "2023-07-31T23:55:16Z"
+    },
+    {
+      "year": 2023,
+      "month": 8,
+      "date": "2023-08-31",
+      "block_height": 1081320,
+      "timestamp_ms": 1693526360853,
+      "timestamp_utc": "2023-08-31T23:59:20Z"
+    },
+    {
+      "year": 2023,
+      "month": 9,
+      "date": "2023-09-30",
+      "block_height": 1102632,
+      "timestamp_ms": 1696118366011,
+      "timestamp_utc": "2023-09-30T23:59:26Z"
+    },
+    {
+      "year": 2023,
+      "month": 10,
+      "date": "2023-10-31",
+      "block_height": 1124747,
+      "timestamp_ms": 1698796799471,
+      "timestamp_utc": "2023-10-31T23:59:59Z"
+    },
+    {
+      "year": 2023,
+      "month": 11,
+      "date": "2023-11-30",
+      "block_height": 1146140,
+      "timestamp_ms": 1701388792689,
+      "timestamp_utc": "2023-11-30T23:59:52Z"
+    },
+    {
+      "year": 2023,
+      "month": 12,
+      "date": "2023-12-31",
+      "block_height": 1168207,
+      "timestamp_ms": 1704067161900,
+      "timestamp_utc": "2023-12-31T23:59:21Z"
+    },
+    {
+      "year": 2024,
+      "month": 1,
+      "date": "2024-01-31",
+      "block_height": 1190324,
+      "timestamp_ms": 1706745343324,
+      "timestamp_utc": "2024-01-31T23:55:43Z"
+    },
+    {
+      "year": 2024,
+      "month": 2,
+      "date": "2024-02-29",
+      "block_height": 1211023,
+      "timestamp_ms": 1709251167150,
+      "timestamp_utc": "2024-02-29T23:59:27Z"
+    },
+    {
+      "year": 2024,
+      "month": 3,
+      "date": "2024-03-31",
+      "block_height": 1233140,
+      "timestamp_ms": 1711929419187,
+      "timestamp_utc": "2024-03-31T23:56:59Z"
+    },
+    {
+      "year": 2024,
+      "month": 4,
+      "date": "2024-04-30",
+      "block_height": 1254568,
+      "timestamp_ms": 1714521472355,
+      "timestamp_utc": "2024-04-30T23:57:52Z"
+    },
+    {
+      "year": 2024,
+      "month": 5,
+      "date": "2024-05-31",
+      "block_height": 1276728,
+      "timestamp_ms": 1717199979150,
+      "timestamp_utc": "2024-05-31T23:59:39Z"
+    },
+    {
+      "year": 2024,
+      "month": 6,
+      "date": "2024-06-30",
+      "block_height": 1298127,
+      "timestamp_ms": 1719791993588,
+      "timestamp_utc": "2024-06-30T23:59:53Z"
+    },
+    {
+      "year": 2024,
+      "month": 7,
+      "date": "2024-07-31",
+      "block_height": 1320276,
+      "timestamp_ms": 1722470385818,
+      "timestamp_utc": "2024-07-31T23:59:45Z"
+    },
+    {
+      "year": 2024,
+      "month": 8,
+      "date": "2024-08-31",
+      "block_height": 1342343,
+      "timestamp_ms": 1725148697617,
+      "timestamp_utc": "2024-08-31T23:58:17Z"
+    },
+    {
+      "year": 2024,
+      "month": 9,
+      "date": "2024-09-30",
+      "block_height": 1363711,
+      "timestamp_ms": 1727740729991,
+      "timestamp_utc": "2024-09-30T23:58:49Z"
+    },
+    {
+      "year": 2024,
+      "month": 10,
+      "date": "2024-10-31",
+      "block_height": 1385885,
+      "timestamp_ms": 1730419089045,
+      "timestamp_utc": "2024-10-31T23:58:09Z"
+    },
+    {
+      "year": 2024,
+      "month": 11,
+      "date": "2024-11-30",
+      "block_height": 1407317,
+      "timestamp_ms": 1733011048945,
+      "timestamp_utc": "2024-11-30T23:57:28Z"
+    },
+    {
+      "year": 2024,
+      "month": 12,
+      "date": "2024-12-31",
+      "block_height": 1429487,
+      "timestamp_ms": 1735689440174,
+      "timestamp_utc": "2024-12-31T23:57:20Z"
+    },
+    {
+      "year": 2025,
+      "month": 1,
+      "date": "2025-01-31",
+      "block_height": 1451628,
+      "timestamp_ms": 1738367883283,
+      "timestamp_utc": "2025-01-31T23:58:03Z"
+    },
+    {
+      "year": 2025,
+      "month": 2,
+      "date": "2025-02-28",
+      "block_height": 1471623,
+      "timestamp_ms": 1740787169871,
+      "timestamp_utc": "2025-02-28T23:59:29Z"
+    },
+    {
+      "year": 2025,
+      "month": 3,
+      "date": "2025-03-31",
+      "block_height": 1493690,
+      "timestamp_ms": 1743465573949,
+      "timestamp_utc": "2025-03-31T23:59:33Z"
+    },
+    {
+      "year": 2025,
+      "month": 4,
+      "date": "2025-04-30",
+      "block_height": 1515136,
+      "timestamp_ms": 1746057272293,
+      "timestamp_utc": "2025-04-30T23:54:32Z"
+    },
+    {
+      "year": 2025,
+      "month": 5,
+      "date": "2025-05-31",
+      "block_height": 1537250,
+      "timestamp_ms": 1748735948021,
+      "timestamp_utc": "2025-05-31T23:59:08Z"
+    },
+    {
+      "year": 2025,
+      "month": 6,
+      "date": "2025-06-30",
+      "block_height": 1558668,
+      "timestamp_ms": 1751327889212,
+      "timestamp_utc": "2025-06-30T23:58:09Z"
+    },
+    {
+      "year": 2025,
+      "month": 7,
+      "date": "2025-07-31",
+      "block_height": 1580749,
+      "timestamp_ms": 1754006365083,
+      "timestamp_utc": "2025-07-31T23:59:25Z"
+    },
+    {
+      "year": 2025,
+      "month": 8,
+      "date": "2025-08-31",
+      "block_height": 1602819,
+      "timestamp_ms": 1756684799806,
+      "timestamp_utc": "2025-08-31T23:59:59Z"
+    },
+    {
+      "year": 2025,
+      "month": 9,
+      "date": "2025-09-30",
+      "block_height": 1624253,
+      "timestamp_ms": 1759276689375,
+      "timestamp_utc": "2025-09-30T23:58:09Z"
+    },
+    {
+      "year": 2025,
+      "month": 10,
+      "date": "2025-10-31",
+      "block_height": 1646362,
+      "timestamp_ms": 1761955013872,
+      "timestamp_utc": "2025-10-31T23:56:53Z"
+    },
+    {
+      "year": 2025,
+      "month": 11,
+      "date": "2025-11-30",
+      "block_height": 1667794,
+      "timestamp_ms": 1764547196426,
+      "timestamp_utc": "2025-11-30T23:59:56Z"
+    },
+    {
+      "year": 2025,
+      "month": 12,
+      "date": "2025-12-31",
+      "block_height": 1689940,
+      "timestamp_ms": 1767225479504,
+      "timestamp_utc": "2025-12-31T23:57:59Z"
+    }
+  ],
+  "lookup": {
     "2022-01-31": 676233,
     "2022-02-28": 696351,
     "2022-03-31": 718155,
