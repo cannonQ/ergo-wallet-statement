@@ -154,58 +154,60 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
   };
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white">Wallet Details</h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex space-x-2">
-            <button
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                selectedCategory === 'All'
-                  ? 'bg-gray-600 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700'
-              }`}
-              onClick={() => setSelectedCategory('All')}
-            >
-              All
-            </button>
-            {categories.map((category) => {
-              const colorConfig = getCategoryColor(category);
-              const isSelected = selectedCategory === category;
-              return (
-                <button
-                  key={category}
-                  className={`px-4 py-2 rounded-lg transition-colors border ${
-                    isSelected
-                      ? 'text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  style={{
-                    backgroundColor: isSelected ? colorConfig.bg : colorConfig.bgFaded,
-                    borderColor: isSelected ? colorConfig.primary : 'transparent'
-                  }}
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category === 'Liquidity/Lending' ? 'Liquidity' : category}
-                </button>
-              );
-            })}
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search tokens..."
-              className="bg-gray-800 text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-gray-600"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
+      <div className="flex flex-col gap-3 md:gap-4 mb-4 md:mb-6">
+        <h2 className="text-lg md:text-xl font-bold text-white">Wallet Details</h2>
+
+        {/* Filter buttons - scrollable on mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+          <button
+            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap flex-shrink-0 text-sm ${
+              selectedCategory === 'All'
+                ? 'bg-gray-600 text-white'
+                : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700 active:bg-gray-700'
+            }`}
+            onClick={() => setSelectedCategory('All')}
+          >
+            All
+          </button>
+          {categories.map((category) => {
+            const colorConfig = getCategoryColor(category);
+            const isSelected = selectedCategory === category;
+            return (
+              <button
+                key={category}
+                className={`px-3 py-1.5 rounded-lg transition-colors border whitespace-nowrap flex-shrink-0 text-sm ${
+                  isSelected
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white active:text-white'
+                }`}
+                style={{
+                  backgroundColor: isSelected ? colorConfig.bg : colorConfig.bgFaded,
+                  borderColor: isSelected ? colorConfig.primary : 'transparent'
+                }}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category === 'Liquidity/Lending' ? 'Liquidity' : category}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search tokens..."
+            className="w-full bg-gray-800 text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-gray-600 text-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed">
+      <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+        <table className="w-full table-fixed min-w-[800px]">
           <colgroup>
             <col className="w-[200px]" /> {/* Token */}
             <col className="w-[120px]" /> {/* Begin */}
@@ -213,35 +215,35 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
             <col className="w-[100px]" />  {/* Out */}
             <col className="w-[120px]" /> {/* End */}
             <col className="w-[140px]" /> {/* Value (ERG) */}
-            <col className="w-[100px]" /> {/* Change % */}
+            <col className="w-[120px]" /> {/* Change % */}
           </colgroup>
           <thead>
-            <tr className="text-gray-400 border-b border-gray-800 text-sm">
-              <th className="pb-3 text-left font-medium">Token</th>
-              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('beginningBalance')}>
+            <tr className="text-gray-400 border-b border-gray-800 text-xs sm:text-sm">
+              <th className="pb-2 sm:pb-3 text-left font-medium">Token</th>
+              <th className="pb-2 sm:pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('beginningBalance')}>
                 Begin
                 {sortField === 'beginningBalance' && (
-                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={12} className="inline ml-1" /> : <ChevronDown size={12} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-3 text-right font-medium">In</th>
-              <th className="pb-3 text-right font-medium">Out</th>
-              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('endingBalance')}>
+              <th className="pb-2 sm:pb-3 text-right font-medium">In</th>
+              <th className="pb-2 sm:pb-3 text-right font-medium">Out</th>
+              <th className="pb-2 sm:pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('endingBalance')}>
                 End
                 {sortField === 'endingBalance' && (
-                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={12} className="inline ml-1" /> : <ChevronDown size={12} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('valueInErg')}>
+              <th className="pb-2 sm:pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('valueInErg')}>
                 Value (ERG)
                 {sortField === 'valueInErg' && (
-                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={12} className="inline ml-1" /> : <ChevronDown size={12} className="inline ml-1" />
                 )}
               </th>
-              <th className="pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('change24h')}>
+              <th className="pb-2 sm:pb-3 text-right font-medium cursor-pointer" onClick={() => toggleSort('change24h')}>
                 Change %
                 {sortField === 'change24h' && (
-                  sortDirection === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />
+                  sortDirection === 'asc' ? <ChevronUp size={12} className="inline ml-1" /> : <ChevronDown size={12} className="inline ml-1" />
                 )}
               </th>
             </tr>
@@ -262,8 +264,8 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
 
               return (
                 <tr key={holding.tokenId || holding.token} className="border-b border-gray-800 hover:bg-gray-800/50">
-                  <td className="py-3 text-white">
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <td className="py-2 sm:py-3 text-white text-xs sm:text-sm">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                       {lpInfo ? (
                         // LP token: show pair name with links to each token
                         <>
@@ -357,11 +359,11 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
                       )}
                     </div>
                   </td>
-                  <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.beginningBalance)}</td>
-                  <td className="py-3 text-right text-green-400 tabular-nums">+{formatNumber(holding.additions)}</td>
-                  <td className="py-3 text-right text-red-400 tabular-nums">-{formatNumber(holding.reductions)}</td>
-                  <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.endingBalance)}</td>
-                  <td className="py-3 text-right text-white tabular-nums">
+                  <td className="py-2 sm:py-3 text-right text-white tabular-nums text-xs sm:text-sm">{formatNumber(holding.beginningBalance)}</td>
+                  <td className="py-2 sm:py-3 text-right text-green-400 tabular-nums text-xs sm:text-sm">+{formatNumber(holding.additions)}</td>
+                  <td className="py-2 sm:py-3 text-right text-red-400 tabular-nums text-xs sm:text-sm">-{formatNumber(holding.reductions)}</td>
+                  <td className="py-2 sm:py-3 text-right text-white tabular-nums text-xs sm:text-sm">{formatNumber(holding.endingBalance)}</td>
+                  <td className="py-2 sm:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {loadingHistoricalPrices && !showCurrentPrices && holding.tokenId ? (
                       // Show spinner while loading historical prices
                       <span className="inline-flex items-center gap-1 text-gray-400">
@@ -377,7 +379,7 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth, loa
                       `${formatNumber(holding.valueInErg)} ERG`
                     )}
                   </td>
-                  <td className={`py-3 text-right tabular-nums ${(() => {
+                  <td className={`py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm ${(() => {
                     if (!showCurrentPrices) {
                       const changeData = holding.tokenId ? historicalPrices.changes.get(holding.tokenId) : null;
                       if (changeData) {

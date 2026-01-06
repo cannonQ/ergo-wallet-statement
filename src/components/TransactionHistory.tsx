@@ -59,29 +59,30 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
   return (
     <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-2">
-          <History className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-bold text-white">Recent Transactions</h2>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <History className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
+          <h2 className="text-base sm:text-lg font-bold text-white">Recent Transactions</h2>
           {selectedDate && (
             <div className="flex items-center bg-purple-600/30 text-purple-300 px-2 py-1 rounded text-xs">
-              <span>{format(selectedDate, 'MMM d, yyyy')}</span>
+              <span className="hidden sm:inline">{format(selectedDate, 'MMM d, yyyy')}</span>
+              <span className="sm:hidden">{format(selectedDate, 'MMM d')}</span>
               <button
                 onClick={onClearDateFilter}
-                className="ml-1 hover:text-white"
+                className="ml-1 hover:text-white p-0.5"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
           )}
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto">
           {/* Pagination */}
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-1">
             <button
               onClick={handlePrevPage}
               disabled={page === 0}
-              className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed min-h-[36px] min-w-[36px] flex items-center justify-center"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -91,12 +92,12 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
             <button
               onClick={handleNextPage}
               disabled={page >= totalPages - 1}
-              className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed min-h-[36px] min-w-[36px] flex items-center justify-center"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          <span className="text-gray-400 text-sm">
+          <span className="text-gray-400 text-xs sm:text-sm">
             {filteredTransactions.length} tx
           </span>
         </div>
@@ -112,7 +113,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {displayedTransactions.map((tx) => (
               <div
                 key={tx.id}

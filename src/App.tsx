@@ -699,7 +699,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
       {/* Sticky header */}
-      <div className="sticky top-0 z-50 bg-gray-800 px-6 pt-6 pb-4 border-b border-gray-700">
+      <div className="sticky top-0 z-50 bg-gray-800 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-gray-700">
         <Header
           address={address}
           isOnline={isOnline}
@@ -712,7 +712,7 @@ function App() {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
+      <div className="flex-1 overflow-auto px-4 md:px-6 pb-4 md:pb-6 pt-3 md:pt-4">
 
       {!address && !isLoading && (
         <div className="flex items-center justify-center h-64">
@@ -734,7 +734,7 @@ function App() {
       {address && balance !== null && !isLoading && (
         <>
           {/* Charts row */}
-          <div className="grid md:grid-cols-[60%_40%] gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-3 md:gap-4 mb-4 md:mb-6">
             <Chart
               data={chartData}
               range={chartRange}
@@ -745,19 +745,19 @@ function App() {
           </div>
 
           {/* Summary, Top Hodls, and Demurrage row */}
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 md:gap-4 mb-4 md:mb-6">
             <WalletSummary holdings={holdings} />
             <TopHodls holdings={holdings} />
             <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
           </div>
 
           {/* Holdings table */}
-          <div className="mb-6">
+          <div className="mb-4 md:mb-6">
             <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
           </div>
 
           {/* Transaction Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
             <div className="lg:col-span-1">
               <TransactionHeatmap
                 transactions={transactions}
@@ -781,7 +781,7 @@ function App() {
           </div>
 
           {/* CyberVerse Gallery */}
-          <div className="mb-6">
+          <div className="mb-4 md:mb-6">
             <CyberVerseGallery
               nfts={safeNfts}
               cyberverseSets={cyberverseSets}

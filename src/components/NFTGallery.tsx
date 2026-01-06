@@ -115,11 +115,11 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
   }
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Image className="w-5 h-5 text-pink-400" />
-          <h2 className="text-xl font-bold text-white">NFTs & Collectibles</h2>
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Image className="w-4 sm:w-5 h-4 sm:h-5 text-pink-400" />
+          <h2 className="text-lg sm:text-xl font-bold text-white">NFTs & Collectibles</h2>
         </div>
         <div className="flex items-center space-x-3">
           {/* Pagination */}

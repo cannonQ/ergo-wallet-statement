@@ -29,21 +29,25 @@ export const AddressInput: React.FC<AddressInputProps> = ({
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col space-y-2">
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <div className="relative flex-1">
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Enter Ergo wallet address (starts with 9)"
-              className={`w-full bg-gray-800 text-white border rounded-lg px-4 py-3 pr-12 font-mono text-sm
+              className={`w-full bg-gray-800 text-white border rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 font-mono text-xs sm:text-sm
                 ${!isValidFormat ? 'border-red-500' : 'border-gray-700'}
                 focus:outline-none focus:border-blue-500 transition-colors`}
               disabled={isLoading}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
             />
             {isLoading && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+              <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-4 sm:w-5 h-4 sm:h-5 text-blue-400 animate-spin" />
               </div>
             )}
           </div>
@@ -51,10 +55,10 @@ export const AddressInput: React.FC<AddressInputProps> = ({
             type="submit"
             disabled={isLoading || !address.trim() || !isValidFormat}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed
-              text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
+              text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center space-x-2 transition-colors min-h-[44px]"
           >
-            <Search className="w-5 h-5" />
-            <span>Load</span>
+            <Search className="w-4 sm:w-5 h-4 sm:h-5" />
+            <span className="text-sm sm:text-base">Load</span>
           </button>
         </div>
 
