@@ -215,11 +215,11 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   }
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Gamepad2 className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-xl font-bold text-white">CyberVerse</h2>
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Gamepad2 className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-400" />
+          <h2 className="text-lg sm:text-xl font-bold text-white">CyberVerse</h2>
           <a
             href="https://playcyberverse.com/"
             target="_blank"

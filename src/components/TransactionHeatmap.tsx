@@ -89,24 +89,25 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
 
   return (
     <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-white">Transaction Activity</h2>
-        <span className="text-gray-400 text-sm">{monthYear}</span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 sm:mb-4">
+        <h2 className="text-base sm:text-lg font-bold text-white">Transaction Activity</h2>
+        <span className="text-gray-400 text-xs sm:text-sm">{monthYear}</span>
       </div>
 
       {/* Day labels */}
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
         {dayLabels.map((day) => (
-          <div key={day} className="text-center text-gray-500 text-xs py-1">
-            {day}
+          <div key={day} className="text-center text-gray-500 text-[10px] sm:text-xs py-1">
+            {day.slice(0, 1)}
+            <span className="hidden sm:inline">{day.slice(1)}</span>
           </div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div className="space-y-1">
+      <div className="space-y-0.5 sm:space-y-1">
         {calendarData.map((week, weekIndex) => (
-          <div key={weekIndex} className="grid grid-cols-7 gap-1">
+          <div key={weekIndex} className="grid grid-cols-7 gap-0.5 sm:gap-1">
             {week.map((day, dayIndex) => {
               if (!day) {
                 return <div key={dayIndex} className="aspect-square" />;
@@ -122,12 +123,12 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
               return (
                 <div
                   key={dayIndex}
-                  className={`aspect-square rounded flex items-center justify-center text-xs relative group transition-all ${
+                  className={`aspect-square rounded flex items-center justify-center text-[10px] sm:text-xs relative group transition-all ${
                     isSelected
                       ? 'ring-2 ring-purple-400 ring-offset-1 ring-offset-gray-900'
                       : ''
                   } ${getColorClass(data.count)} ${
-                    hasTransactions ? 'cursor-pointer hover:scale-105' : 'cursor-default'
+                    hasTransactions ? 'cursor-pointer active:scale-95 sm:hover:scale-105' : 'cursor-default'
                   }`}
                   title={hasTransactions ? `Click to filter: ${data.count} tx on ${format(day, 'MMM d')}\nIn: +${data.incoming.toFixed(2)} ERG\nOut: -${data.outgoing.toFixed(2)} ERG` : `${format(day, 'MMM d')}: No transactions`}
                   onClick={() => {
@@ -141,11 +142,11 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
                     }
                   }}
                 >
-                  <span className={`${hasTransactions ? 'text-white' : 'text-gray-500'}`}>
+                  <span className={`${hasTransactions ? 'text-white font-medium' : 'text-gray-500'}`}>
                     {dayNum}
                   </span>
                   {hasTransactions && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                    <span className="absolute -top-0.5 sm:-top-1 -right-0.5 sm:-right-1 w-3 sm:w-4 h-3 sm:h-4 bg-purple-500 rounded-full text-[8px] sm:text-[10px] text-white flex items-center justify-center">
                       {data.count}
                     </span>
                   )}
@@ -157,14 +158,14 @@ export const TransactionHeatmap: React.FC<TransactionHeatmapProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-end mt-3 space-x-2">
-        <span className="text-gray-500 text-xs">Less</span>
-        <div className="w-3 h-3 rounded bg-gray-800" />
-        <div className="w-3 h-3 rounded bg-green-900" />
-        <div className="w-3 h-3 rounded bg-green-700" />
-        <div className="w-3 h-3 rounded bg-green-500" />
-        <div className="w-3 h-3 rounded bg-green-400" />
-        <span className="text-gray-500 text-xs">More</span>
+      <div className="flex items-center justify-end mt-2 sm:mt-3 gap-1.5 sm:gap-2">
+        <span className="text-gray-500 text-[10px] sm:text-xs">Less</span>
+        <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded bg-gray-800" />
+        <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded bg-green-900" />
+        <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded bg-green-700" />
+        <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded bg-green-500" />
+        <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded bg-green-400" />
+        <span className="text-gray-500 text-[10px] sm:text-xs">More</span>
       </div>
     </div>
   );

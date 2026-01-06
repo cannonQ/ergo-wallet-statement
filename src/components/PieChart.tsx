@@ -85,7 +85,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data }) => {
   };
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg h-[300px]">
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg h-[250px] sm:h-[300px]">
       <Pie options={options} data={chartData} />
     </div>
   );
