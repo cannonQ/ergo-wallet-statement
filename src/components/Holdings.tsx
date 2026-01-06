@@ -293,6 +293,13 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
                               <span>{lpInfo.token2.ticker}</span>
                             )}
                             <span className="text-gray-400 ml-1">LP</span>
+                            {holding.poolType && (
+                              <span className={`ml-1 px-1.5 py-0.5 text-xs rounded ${
+                                holding.poolType === 'N2T' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'
+                              }`}>
+                                {holding.poolType}
+                              </span>
+                            )}
                           </span>
                           <span className="flex items-center gap-1">
                             <a
@@ -354,24 +361,13 @@ export const Holdings: React.FC<HoldingsProps> = ({ holdings, selectedMonth }) =
                   <td className="py-3 text-right text-red-400 tabular-nums">-{formatNumber(holding.reductions)}</td>
                   <td className="py-3 text-right text-white tabular-nums">{formatNumber(holding.endingBalance)}</td>
                   <td className="py-3 text-right text-white tabular-nums">
-                    {showCurrentPrices ? (
+                    {holding.priceUnavailable ? (
+                      <span className="text-yellow-500" title="Historical price not available">
+                        {formatNumber(holding.endingBalance)} ⚠️
+                      </span>
+                    ) : (
                       `${formatNumber(holding.valueInErg)} ERG`
-                    ) : (() => {
-                      // Historical pricing - calculate value from historical price
-                      if (historicalPrices.loading) {
-                        return <span className="text-gray-500">...</span>;
-                      }
-                      // ERG token - value equals amount
-                      if (!holding.tokenId || holding.token === 'ERG') {
-                        return `${formatNumber(holding.endingBalance)} ERG`;
-                      }
-                      const priceData = historicalPrices.prices.get(holding.tokenId);
-                      if (priceData) {
-                        const historicalValue = holding.endingBalance * priceData.priceInErg;
-                        return `${formatNumber(historicalValue)} ERG`;
-                      }
-                      return <span className="text-gray-500">-</span>;
-                    })()}
+                    )}
                   </td>
                   <td className={`py-3 text-right tabular-nums ${(() => {
                     if (!showCurrentPrices) {

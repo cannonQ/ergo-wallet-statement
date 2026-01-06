@@ -29,6 +29,8 @@ export interface Holding {
     token1: { id: string; ticker: string };
     token2: { id: string; ticker: string };
   };
+  priceUnavailable?: boolean; // True if historical price is not available
+  poolType?: 'N2T' | 'T2T'; // LP pool type indicator
 }
 
 export interface Alert {
