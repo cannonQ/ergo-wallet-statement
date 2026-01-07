@@ -69,17 +69,17 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
   };
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg h-full">
-      <h2 className="text-xl font-bold text-white mb-6">Wallet Summary</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg h-full">
+      <h2 className="text-lg md:text-xl font-bold text-white mb-4 md:mb-6">Wallet Summary</h2>
+      <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+        <table className="w-full min-w-[500px]">
           <thead>
-            <tr className="text-gray-400 border-b border-gray-800">
-              <th className="pb-4 text-left">Category</th>
-              <th className="pb-4 text-right">Beginning (ERG)</th>
-              <th className="pb-4 text-right">Change (ERG)</th>
-              <th className="pb-4 text-right">Change (%)</th>
-              <th className="pb-4 text-right">Ending (ERG)</th>
+            <tr className="text-gray-400 border-b border-gray-800 text-xs sm:text-sm">
+              <th className="pb-2 md:pb-3 text-left">Category</th>
+              <th className="pb-2 md:pb-3 text-right">Beginning</th>
+              <th className="pb-2 md:pb-3 text-right">Change</th>
+              <th className="pb-2 md:pb-3 text-right">Change %</th>
+              <th className="pb-2 md:pb-3 text-right">Ending</th>
             </tr>
           </thead>
           <tbody>
@@ -92,34 +92,73 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
 
               return (
                 <tr key={category} className="border-b border-gray-800">
-                  <td className="py-4">
-                    <div className="flex items-center gap-2">
+                  <td className="py-2 md:py-3">
+                    <div className="flex items-center gap-1">
                       <div
-                        className="w-3 h-3 rounded-full"
+                        className="w-2 sm:w-3 h-2 sm:h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: colorConfig.primary }}
                       />
-                      <span className="text-white">{category}</span>
+                      <span className="text-white text-xs sm:text-sm">{category}</span>
                     </div>
                   </td>
-                  <td className="py-4 text-right text-white tabular-nums">
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {formatNumber(summary.beginningBalance)}
                   </td>
-                  <td className={`py-4 text-right tabular-nums ${
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
                     summary.change === 0 ? 'text-gray-400' : summary.change > 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {summary.change > 0 ? '+' : ''}{formatNumber(summary.change)}
                   </td>
-                  <td className={`py-4 text-right tabular-nums ${
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
                     changePercent === 0 ? 'text-gray-400' : changePercent > 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {changePercent > 0 ? '+' : ''}{isFinite(changePercent) ? changePercent.toFixed(2) : '0.00'}%
                   </td>
-                  <td className="py-4 text-right text-white tabular-nums">
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {formatNumber(summary.endingBalance)}
                   </td>
                 </tr>
               );
             })}
+            {/* Total row */}
+            {(() => {
+              const totals = categories.reduce((acc, category) => {
+                const summary = getCategorySummary(category);
+                return {
+                  beginning: acc.beginning + summary.beginningBalance,
+                  change: acc.change + summary.change,
+                  ending: acc.ending + summary.endingBalance,
+                };
+              }, { beginning: 0, change: 0, ending: 0 });
+
+              const totalChangePercent = totals.beginning > 0
+                ? ((totals.change / totals.beginning) * 100)
+                : 0;
+
+              return (
+                <tr className="border-t-2 border-gray-700 font-bold">
+                  <td className="py-2 md:py-3">
+                    <span className="text-white text-xs sm:text-sm">TOTAL</span>
+                  </td>
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
+                    {formatNumber(totals.beginning)}
+                  </td>
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
+                    totals.change === 0 ? 'text-gray-400' : totals.change > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {totals.change > 0 ? '+' : ''}{formatNumber(totals.change)}
+                  </td>
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
+                    totalChangePercent === 0 ? 'text-gray-400' : totalChangePercent > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {totalChangePercent > 0 ? '+' : ''}{isFinite(totalChangePercent) ? totalChangePercent.toFixed(2) : '0.00'}%
+                  </td>
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
+                    {formatNumber(totals.ending)}
+                  </td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>

@@ -142,18 +142,18 @@ export const Chart: React.FC<ChartProps> = ({ data, range, onRangeChange, isLoad
   };
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg h-[300px] flex flex-col">
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg h-[250px] sm:h-[300px] flex flex-col">
       {/* Range selector */}
-      <div className="flex justify-end gap-1 mb-2">
+      <div className="flex justify-end gap-1.5 mb-2">
         {ranges.map((r) => (
           <button
             key={r}
             onClick={() => onRangeChange(r)}
             disabled={isLoading}
-            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+            className={`px-3 py-1.5 text-xs sm:text-sm rounded transition-colors min-h-[36px] min-w-[44px] ${
               range === r
                 ? 'bg-orange-500 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-600'
             } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {r}m

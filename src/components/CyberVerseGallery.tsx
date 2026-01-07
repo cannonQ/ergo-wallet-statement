@@ -1,7 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Gamepad2, ExternalLink, ChevronLeft, ChevronRight, Image } from 'lucide-react';
-
-const PAGE_SIZE = 20;
+import React, { useState, useMemo, useEffect } from 'react';
+import { Gamepad2, ExternalLink, ChevronLeft, ChevronRight, Image, Loader2 } from 'lucide-react';
 
 interface NFT {
   tokenId: string;
@@ -57,6 +55,25 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<CyberVerseCategory>('All');
   const [page, setPage] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Responsive items per page: 6 on mobile, 20 on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      setItemsPerPage(window.innerWidth < 768 ? 6 : 20);
+      setPage(0); // Reset to first page when changing screen size
+    };
+
+    handleResize(); // Set initial value
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Reset page when category changes
+  const handleCategoryChange = (category: CyberVerseCategory) => {
+    setSelectedCategory(category);
+    setPage(0);
+  };
 
   const categories: CyberVerseCategory[] = ['All', 'Gen2', 'Gen3', 'Car', 'Apartment', 'Pet', 'Skins', 'VIPCard', 'Emote', 'Audio', 'JackHammer', 'Egg'];
 
@@ -115,16 +132,11 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   }, [cyberverseNfts, selectedCategory]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredNfts.length / PAGE_SIZE);
-  const paginatedNfts = filteredNfts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(filteredNfts.length / itemsPerPage);
+  const paginatedNfts = filteredNfts.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
 
   const handlePrevPage = () => setPage(p => Math.max(0, p - 1));
   const handleNextPage = () => setPage(p => Math.min(totalPages - 1, p + 1));
-
-  const handleCategoryChange = (category: CyberVerseCategory) => {
-    setSelectedCategory(category);
-    setPage(0);
-  };
 
   // Category colors
   const getCategoryColor = (category: CyberVerseCategory | null) => {
@@ -215,16 +227,17 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   }
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Gamepad2 className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-xl font-bold text-white">CyberVerse</h2>
+    <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Gamepad2 className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-400" />
+          <h2 className="text-base md:text-lg font-bold text-white">CyberVerse</h2>
+          {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
           <a
             href="https://playcyberverse.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs px-2 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+            className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             Play
@@ -233,16 +246,30 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
             href="https://www.cyberversewiki.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             Wiki
           </a>
         </div>
-        <div className="flex items-center space-x-3">
+
+        <div className="flex items-center gap-2">
+          {/* Mobile: Compact dropdown filter */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => handleCategoryChange(e.target.value as CyberVerseCategory)}
+            className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
+          >
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {categoryLabels[category]} {categoryCounts[category] > 0 && `(${categoryCounts[category]})`}
+              </option>
+            ))}
+          </select>
+
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center gap-1">
               <button
                 onClick={handlePrevPage}
                 disabled={page === 0}
@@ -262,12 +289,14 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
               </button>
             </div>
           )}
-          <span className="text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
+
+          {/* Desktop: Item count */}
+          <span className="hidden md:block text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
         </div>
       </div>
 
-      {/* Category filter buttons */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Desktop: Category filter buttons */}
+      <div className="hidden md:flex flex-wrap gap-2 mb-4">
         {categories.map((category) => (
           <button
             key={category}
@@ -299,7 +328,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
               className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all cursor-pointer group"
               onClick={() => openExplorer(nft.tokenId)}
             >
-              {/* Artwork image with placeholder fallback */}
+              {/* Artwork image with badge overlay */}
               <div className={`aspect-square ${getCategoryColor(nft.cyberverseCategory)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
                 {(() => {
                   const imageUrl = getImageUrl(nft);
@@ -315,10 +344,37 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
                   }
                   return <Image className="w-8 h-8" />;
                 })()}
+
+                {/* Name badge on lower left corner - mobile only */}
+                <div className="md:hidden absolute bottom-1 left-1">
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white truncate max-w-[120px] block"
+                    style={{
+                      textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 1.5px rgba(0,0,0,1)',
+                      backdropFilter: 'blur(4px)'
+                    }}
+                    title={nft.name}
+                  >
+                    {nft.name.length > 25 ? `${nft.name.slice(0, 25)}...` : nft.name}
+                  </span>
+                </div>
+
+                {/* Category badge on lower right corner */}
+                <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
+                  <span
+                    className="text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded bg-black/70 text-white"
+                    style={{
+                      textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 1.5px rgba(0,0,0,1)',
+                      backdropFilter: 'blur(4px)'
+                    }}
+                  >
+                    {nft.cyberverseCategory && categoryLabels[nft.cyberverseCategory]}
+                  </span>
+                </div>
               </div>
 
-              {/* Info */}
-              <div className="p-3">
+              {/* Info - desktop only */}
+              <div className="hidden md:block p-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-white font-medium text-sm truncate" title={nft.name}>
@@ -329,12 +385,6 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
                     </p>
                   </div>
                   <ExternalLink className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
-                </div>
-
-                <div className="mt-2">
-                  <span className={`text-xs px-2 py-0.5 rounded ${getCategoryColor(nft.cyberverseCategory)} text-white`}>
-                    {nft.cyberverseCategory && categoryLabels[nft.cyberverseCategory]}
-                  </span>
                 </div>
               </div>
             </div>

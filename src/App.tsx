@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
+import { Navbar } from './components/Navbar';
+import { SectionNav } from './components/SectionNav';
 import { Chart } from './components/Chart';
 import { PieChart } from './components/PieChart';
 import { WalletSummary } from './components/WalletSummary';
 import { Holdings } from './components/Holdings';
 import { TransactionHistory } from './components/TransactionHistory';
 import { TransactionHeatmap } from './components/TransactionHeatmap';
-import { DemurrageAlert } from './components/DemurrageAlert';
+import { WalletMaintenance } from './components/WalletMaintenance';
 import { TopHodls } from './components/TopHodls';
 import { NFTGallery } from './components/NFTGallery';
 import { CyberVerseGallery } from './components/CyberVerseGallery';
@@ -157,7 +159,7 @@ function App() {
   const [transactionLimit, setTransactionLimit] = useState(20);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Load CyberVerse token IDs on mount
   useEffect(() => {
@@ -698,21 +700,40 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-50 bg-gray-800 px-6 pt-6 pb-4 border-b border-gray-700">
-        <Header
-          address={address}
-          isOnline={isOnline}
-          isLoading={isLoading}
-          error={error}
-          selectedMonth={selectedMonth}
-          onAddressSubmit={handleAddressSubmit}
-          onMonthChange={handleMonthChange}
-        />
-      </div>
+      {/* Sticky navbar/header */}
+      {address ? (
+        // Compact navbar when wallet loaded
+        <div className="sticky top-0 z-50 bg-gray-800 shadow-lg border-b border-gray-700">
+          <Navbar
+            address={address}
+            isOnline={isOnline}
+            isLoading={isLoading}
+            error={error}
+            selectedMonth={selectedMonth}
+            onAddressSubmit={handleAddressSubmit}
+            onMonthChange={handleMonthChange}
+          />
+        </div>
+      ) : (
+        // Full header for landing page
+        <div className="sticky top-0 z-50 bg-gray-800 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-gray-700">
+          <Header
+            address={address}
+            isOnline={isOnline}
+            isLoading={isLoading}
+            error={error}
+            selectedMonth={selectedMonth}
+            onAddressSubmit={handleAddressSubmit}
+            onMonthChange={handleMonthChange}
+          />
+        </div>
+      )}
+
+      {/* Section Navigation - only show when wallet is loaded */}
+      {address && balance !== null && !isLoading && <SectionNav />}
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
+      <div className="flex-1 overflow-auto px-4 md:px-6 pb-4 md:pb-6 pt-3 md:pt-4">
 
       {!address && !isLoading && (
         <div className="flex items-center justify-center h-64">
@@ -734,54 +755,66 @@ function App() {
       {address && balance !== null && !isLoading && (
         <>
           {/* Charts row */}
-          <div className="grid md:grid-cols-[60%_40%] gap-4 mb-6">
+          <div id="chart" className="grid grid-cols-1 md:grid-cols-[40%_60%] gap-3 md:gap-4 mb-4 md:mb-6">
+            <PieChart data={pieData} />
             <Chart
               data={chartData}
               range={chartRange}
               onRangeChange={handleChartRangeChange}
               isLoading={loadingHistory}
             />
-            <PieChart data={pieData} />
           </div>
 
-          {/* Summary, Top Hodls, and Demurrage row */}
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4 mb-6">
+          {/* Summary, Top Hodls, and Wallet Maintenance row */}
+          <div id="summary" className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 md:gap-4 mb-4 md:mb-6">
             <WalletSummary holdings={holdings} />
             <TopHodls holdings={holdings} />
-            <DemurrageAlert boxes={demurrageBoxes} isLoading={loadingDemurrage} />
+            <WalletMaintenance
+              boxes={demurrageBoxes}
+              holdings={holdings}
+              blacklistedTokens={blacklistedTokens}
+              isLoading={loadingDemurrage}
+            />
           </div>
 
-          {/* Holdings table */}
-          <div className="mb-6">
-            <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
-          </div>
-
-          {/* Transaction Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div className="lg:col-span-1">
-              <TransactionHeatmap
-                transactions={transactions}
-                selectedMonth={selectedMonth}
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-              />
+          {/* Holdings and Transaction Activity Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-[67%_33%] gap-4 md:gap-6 mb-4 md:mb-6">
+            {/* Holdings table - Left 67% */}
+            <div id="holdings">
+              <Holdings holdings={holdings} selectedMonth={selectedMonth} loadingHistoricalPrices={loadingHistoricalPrices} />
             </div>
-            <div className="lg:col-span-2">
-              <TransactionHistory
-                transactions={transactions}
-                total={totalTransactions}
-                isLoading={loadingTransactions}
-                isLoadingMore={loadingMoreTransactions}
-                hasMore={hasMoreTransactions}
-                onLoadMore={loadMoreTransactions}
-                selectedDate={selectedDate}
-                onClearDateFilter={() => setSelectedDate(null)}
-              />
+
+            {/* Transaction Stack - Right 33% */}
+            <div className="flex flex-col gap-4">
+              {/* Transaction Heatmap - Top 50% */}
+              <div id="heatmap" className="flex-1">
+                <TransactionHeatmap
+                  transactions={transactions}
+                  selectedMonth={selectedMonth}
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                  isLoading={loadingTransactions}
+                />
+              </div>
+
+              {/* Transaction History - Bottom 50% */}
+              <div id="transactions" className="flex-1">
+                <TransactionHistory
+                  transactions={transactions}
+                  total={totalTransactions}
+                  isLoading={loadingTransactions}
+                  isLoadingMore={loadingMoreTransactions}
+                  hasMore={hasMoreTransactions}
+                  onLoadMore={loadMoreTransactions}
+                  selectedDate={selectedDate}
+                  onClearDateFilter={() => setSelectedDate(null)}
+                />
+              </div>
             </div>
           </div>
 
           {/* CyberVerse Gallery */}
-          <div className="mb-6">
+          <div id="cyberverse" className="mb-4 md:mb-6">
             <CyberVerseGallery
               nfts={safeNfts}
               cyberverseSets={cyberverseSets}
@@ -790,7 +823,9 @@ function App() {
           </div>
 
           {/* NFT Gallery */}
-          <NFTGallery nfts={nonCyberverseNfts} isLoading={loadingNFTs} />
+          <div id="nfts">
+            <NFTGallery nfts={nonCyberverseNfts} isLoading={loadingNFTs} />
+          </div>
         </>
       )}
 
