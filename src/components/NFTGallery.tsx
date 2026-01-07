@@ -1,7 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Image, ExternalLink, Music, Video, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const PAGE_SIZE = 20;
+
+// Timeout for IPFS image loads (5 seconds instead of browser default ~30s)
+const IMAGE_TIMEOUT_MS = 5000;
 
 interface NFT {
   tokenId: string;
@@ -15,6 +18,81 @@ interface NFTGalleryProps {
   nfts: NFT[];
   isLoading?: boolean;
 }
+
+/**
+ * NFT Image component with timeout and lazy loading
+ * Cancels slow IPFS requests after 5 seconds instead of waiting 30s
+ */
+const NFTImage: React.FC<{
+  src: string;
+  alt: string;
+  onError: () => void;
+  fallback: React.ReactNode;
+}> = ({ src, alt, onError, fallback }) => {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const imgRef = useRef<HTMLImageElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    // Reset status when src changes
+    setStatus('loading');
+
+    // Set timeout to abort slow loads
+    timeoutRef.current = setTimeout(() => {
+      if (status === 'loading') {
+        console.log(`IPFS timeout (${IMAGE_TIMEOUT_MS}ms): ${src.slice(0, 50)}...`);
+        setStatus('error');
+        onError();
+      }
+    }, IMAGE_TIMEOUT_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [src]);
+
+  const handleLoad = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setStatus('loaded');
+  };
+
+  const handleError = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setStatus('error');
+    onError();
+  };
+
+  if (status === 'error') {
+    return <>{fallback}</>;
+  }
+
+  return (
+    <>
+      {status === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          {fallback}
+        </div>
+      )}
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className={`w-full h-full object-cover transition-opacity duration-300 ${
+          status === 'loaded' ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoad={handleLoad}
+        onError={handleError}
+      />
+    </>
+  );
+};
 
 export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false }) => {
   const [selectedType, setSelectedType] = useState<string>('All');
@@ -172,17 +250,17 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
             className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
             onClick={() => openExplorer(nft.tokenId)}
           >
-            {/* Artwork image from IPFS (via ipfs.io gateway) with placeholder fallback */}
+            {/* Artwork image from IPFS with timeout + lazy loading */}
             <div className={`aspect-square ${getTypeColor(nft.type)} flex items-center justify-center text-white/80 relative overflow-hidden`}>
               {(() => {
                 const imageUrl = getImageUrl(nft);
                 if (imageUrl) {
                   return (
-                    <img
+                    <NFTImage
                       src={imageUrl}
                       alt={nft.name}
-                      className="w-full h-full object-cover"
                       onError={() => handleImageError(nft.tokenId)}
+                      fallback={getIcon(nft.type)}
                     />
                   );
                 }
