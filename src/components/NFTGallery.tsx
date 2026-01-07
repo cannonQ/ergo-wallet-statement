@@ -134,21 +134,48 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
           {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
         </div>
 
-        {/* Mobile: Compact dropdown filter */}
-        <select
-          value={selectedType}
-          onChange={(e) => handleTypeChange(e.target.value)}
-          className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
-        >
-          {types.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          {/* Mobile: Compact dropdown filter */}
+          <select
+            value={selectedType}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            className="md:hidden bg-gray-800 text-white text-xs px-2 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-gray-600"
+          >
+            {types.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
 
-        {/* Desktop: Item count */}
-        <span className="hidden md:block text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handlePrevPage}
+                disabled={page === 0}
+                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-400" />
+              </button>
+              <span className="text-gray-400 text-xs">
+                {page + 1}/{totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={page >= totalPages - 1}
+                className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+          )}
+
+          {/* Desktop: Item count */}
+          <span className="hidden md:block text-gray-400 text-sm">{filteredNfts.length} item{filteredNfts.length !== 1 ? 's' : ''}</span>
+        </div>
       </div>
 
       {/* Desktop: Filter buttons */}
