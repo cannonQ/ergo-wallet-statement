@@ -698,6 +698,11 @@ function App() {
     return nfts.filter(nft => !blacklistedTokens.has(nft.tokenId));
   }, [nfts, blacklistedTokens]);
 
+  // Check if wallet has any blacklisted tokens (before filtering them out of holdings)
+  const hasBlacklistedTokens = useMemo(() => {
+    return tokens.some(token => blacklistedTokens.has(token.tokenId));
+  }, [tokens, blacklistedTokens]);
+
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
       {/* Sticky navbar/header */}
@@ -771,8 +776,7 @@ function App() {
             <TopHodls holdings={holdings} />
             <WalletMaintenance
               boxes={demurrageBoxes}
-              holdings={holdings}
-              blacklistedTokens={blacklistedTokens}
+              hasBlacklistedTokens={hasBlacklistedTokens}
               isLoading={loadingDemurrage}
             />
           </div>
