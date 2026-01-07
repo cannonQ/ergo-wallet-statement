@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, X, Copy, CheckCircle, WifiOff, Loader2, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { AddressInput } from './AddressInput';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 interface NavbarProps {
   address: string;
@@ -56,20 +56,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Mobile month format: "Jan 26"
   const mobileMonthFormat = format(selectedMonth, "MMM yy");
 
+  // Date range for month picker
+  const startDate = startOfMonth(selectedMonth);
+  const endDate = endOfMonth(selectedMonth);
+  const dateRange = `${format(startDate, 'MMM d')} - ${format(endDate, 'd, yyyy')}`;
+
   return (
     <>
       {/* Mobile Navbar */}
-      <nav className="md:hidden bg-gray-900 px-3 py-2 flex items-center justify-between gap-2">
+      <nav className="md:hidden bg-gray-900 px-3 py-2 flex items-center justify-center gap-2">
         {/* Hamburger */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className="text-gray-400 hover:text-white p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center"
+          className="text-gray-400 hover:text-white p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center absolute left-3"
           aria-label="Open menu"
         >
           <Menu size={20} />
         </button>
 
-        {/* Compact Month Picker */}
+        {/* Compact Month Picker - Centered */}
         <div className="flex items-center gap-1 bg-gray-800 rounded px-2 py-1">
           <button
             onClick={goToPreviousMonth}
@@ -90,19 +95,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <ChevronRight size={16} />
           </button>
         </div>
-
-        {/* Copy Address */}
-        <button
-          onClick={copyAddress}
-          className="text-gray-400 hover:text-white p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center"
-          title="Copy address"
-        >
-          {copied ? (
-            <CheckCircle size={16} className="text-green-400" />
-          ) : (
-            <Copy size={16} />
-          )}
-        </button>
       </nav>
 
       {/* Desktop Navbar */}
@@ -121,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : isOnline ? (
               <>
                 <CheckCircle size={16} />
-                <span className="text-xs">Connected</span>
+                <span className="text-xs">Connected to Explorer</span>
               </>
             ) : (
               <>
@@ -148,9 +140,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <ChevronLeft size={18} />
           </button>
-          <div className="text-center min-w-[120px]">
+          <div className="text-center min-w-[180px]">
             <div className="text-white font-semibold text-sm">
               {format(selectedMonth, 'MMMM yyyy')}
+            </div>
+            <div className="text-gray-400 text-xs">
+              {dateRange}
             </div>
           </div>
           <button

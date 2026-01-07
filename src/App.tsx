@@ -159,7 +159,7 @@ function App() {
   const [transactionLimit, setTransactionLimit] = useState(20);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Load CyberVerse token IDs on mount
   useEffect(() => {
@@ -755,14 +755,14 @@ function App() {
       {address && balance !== null && !isLoading && (
         <>
           {/* Charts row */}
-          <div id="chart" className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-3 md:gap-4 mb-4 md:mb-6">
+          <div id="chart" className="grid grid-cols-1 md:grid-cols-[40%_60%] gap-3 md:gap-4 mb-4 md:mb-6">
+            <PieChart data={pieData} />
             <Chart
               data={chartData}
               range={chartRange}
               onRangeChange={handleChartRangeChange}
               isLoading={loadingHistory}
             />
-            <PieChart data={pieData} />
           </div>
 
           {/* Summary, Top Hodls, and Wallet Maintenance row */}
