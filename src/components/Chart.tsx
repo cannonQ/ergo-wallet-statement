@@ -11,7 +11,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { Loader2 } from 'lucide-react';
+import { Loader2, TrendingUp } from 'lucide-react';
 import { CATEGORY_COLORS, formatNumber } from '../constants';
 
 ChartJS.register(
@@ -92,12 +92,7 @@ export const Chart: React.FC<ChartProps> = ({ data, range, onRangeChange, isLoad
         },
       },
       title: {
-        display: true,
-        text: 'Wallet History (Total Value in ERG)',
-        color: 'white',
-        font: {
-          size: 16,
-        },
+        display: false,
       },
       tooltip: {
         mode: 'index' as const,
@@ -143,25 +138,29 @@ export const Chart: React.FC<ChartProps> = ({ data, range, onRangeChange, isLoad
 
   return (
     <div className="bg-gray-900 p-4 md:p-6 rounded-lg shadow-lg h-[250px] sm:h-[300px] flex flex-col">
-      {/* Range selector */}
-      <div className="flex justify-end gap-1.5 mb-2">
-        {ranges.map((r) => (
-          <button
-            key={r}
-            onClick={() => onRangeChange(r)}
-            disabled={isLoading}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded transition-colors min-h-[36px] min-w-[44px] ${
-              range === r
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-600'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {r}m
-          </button>
-        ))}
-        {isLoading && (
-          <Loader2 size={14} className="animate-spin text-gray-400 ml-2 self-center" />
-        )}
+      {/* Header with title and range selector */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-orange-400" />
+          <h2 className="text-base md:text-lg font-bold text-white">Wallet History</h2>
+          {isLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
+        </div>
+        <div className="flex gap-1.5">
+          {ranges.map((r) => (
+            <button
+              key={r}
+              onClick={() => onRangeChange(r)}
+              disabled={isLoading}
+              className={`px-3 py-1.5 text-xs sm:text-sm rounded transition-colors min-h-[36px] min-w-[44px] ${
+                range === r
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-600'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {r}m
+            </button>
+          ))}
+        </div>
       </div>
       {/* Chart */}
       <div className="flex-1 min-h-0">
