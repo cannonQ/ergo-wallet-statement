@@ -52,25 +52,18 @@ def save_json(filepath: str, data: dict):
 
 def get_last_month_end() -> tuple[int, int, str, int]:
     """
-    Determine which month just ended.
+    Determine which month just ended (always the previous month).
     Returns: (year, month, date_str, timestamp_ms)
     """
     now = datetime.now(timezone.utc)
 
-    # If we're in the first few days of a month, we want the previous month
-    # Otherwise, use the current month's end (for testing/manual runs)
-    if now.day <= 5:
-        # Get previous month
-        if now.month == 1:
-            year = now.year - 1
-            month = 12
-        else:
-            year = now.year
-            month = now.month - 1
+    # Always target the previous month (the most recent completed month)
+    if now.month == 1:
+        year = now.year - 1
+        month = 12
     else:
-        # Current month (for testing)
         year = now.year
-        month = now.month
+        month = now.month - 1
 
     # Get last day of the month
     _, last_day = monthrange(year, month)
