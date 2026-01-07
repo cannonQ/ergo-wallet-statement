@@ -99,6 +99,7 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
   const [page, setPage] = useState(0);
   // Track which images have failed to load
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [usingCdnFallback, setUsingCdnFallback] = useState<Set<string>>(new Set());
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const types = ['All', 'NFT', 'Audio', 'Video', 'Artwork Collection'];
 
@@ -119,15 +120,28 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ nfts, isLoading = false 
   };
 
   const handleImageError = (tokenId: string) => {
-    setFailedImages(prev => new Set(prev).add(tokenId));
+    // If we're already using CDN fallback, mark as fully failed
+    if (usingCdnFallback.has(tokenId)) {
+      setFailedImages(prev => new Set(prev).add(tokenId));
+      return;
+    }
+
+    // Otherwise, try CDN fallback
+    setUsingCdnFallback(prev => new Set(prev).add(tokenId));
   };
 
-  // Get the image URL - uses IPFS URL from token metadata
+  // Get the image URL - tries IPFS first, then AuctionHouse CDN, then placeholder
   const getImageUrl = (nft: NFT): string | null => {
     if (failedImages.has(nft.tokenId)) {
-      return null; // Show placeholder
+      return null; // Both IPFS and CDN failed, show placeholder
     }
-    return nft.artworkUrl || null;
+
+    if (usingCdnFallback.has(nft.tokenId)) {
+      // Try AuctionHouse CDN fallback
+      return `https://f003.backblazeb2.com/file/auctionhouse-mainnet/original/${nft.tokenId}`;
+    }
+
+    return nft.artworkUrl || null; // Try IPFS first
   };
 
   // Filter by type

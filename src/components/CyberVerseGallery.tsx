@@ -55,6 +55,7 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<CyberVerseCategory>('All');
   const [page, setPage] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [usingCdnFallback, setUsingCdnFallback] = useState<Set<string>>(new Set());
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Responsive items per page: 6 on mobile, 20 on desktop
@@ -82,14 +83,27 @@ export const CyberVerseGallery: React.FC<CyberVerseGalleryProps> = ({
   };
 
   const handleImageError = (tokenId: string) => {
-    setFailedImages(prev => new Set(prev).add(tokenId));
+    // If we're already using CDN fallback, mark as fully failed
+    if (usingCdnFallback.has(tokenId)) {
+      setFailedImages(prev => new Set(prev).add(tokenId));
+      return;
+    }
+
+    // Otherwise, try CDN fallback
+    setUsingCdnFallback(prev => new Set(prev).add(tokenId));
   };
 
   const getImageUrl = (nft: NFT): string | null => {
     if (failedImages.has(nft.tokenId)) {
-      return null;
+      return null; // Both IPFS and CDN failed, show placeholder
     }
-    return nft.artworkUrl || null;
+
+    if (usingCdnFallback.has(nft.tokenId)) {
+      // Try AuctionHouse CDN fallback
+      return `https://f003.backblazeb2.com/file/auctionhouse-mainnet/original/${nft.tokenId}`;
+    }
+
+    return nft.artworkUrl || null; // Try IPFS first
   };
 
   // Categorize a token and return its category or null if not CyberVerse

@@ -789,9 +789,9 @@ function App() {
             </div>
 
             {/* Transaction Stack - Right 33% */}
-            <div className="flex flex-col">
-              {/* Transaction Heatmap - Top 50% */}
-              <div id="heatmap" className="flex-1">
+            <div className="flex flex-col gap-3 md:gap-4">
+              {/* Transaction Heatmap - Top */}
+              <div id="heatmap">
                 <TransactionHeatmap
                   transactions={transactions}
                   selectedMonth={selectedMonth}
@@ -801,8 +801,8 @@ function App() {
                 />
               </div>
 
-              {/* Transaction History - Bottom 50% */}
-              <div id="transactions" className="flex-1">
+              {/* Transaction History - Bottom */}
+              <div id="transactions">
                 <TransactionHistory
                   transactions={transactions}
                   total={totalTransactions}
