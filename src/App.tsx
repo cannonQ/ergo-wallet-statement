@@ -698,6 +698,11 @@ function App() {
     return nfts.filter(nft => !blacklistedTokens.has(nft.tokenId));
   }, [nfts, blacklistedTokens]);
 
+  // Check if wallet has any blacklisted tokens (before filtering them out of holdings)
+  const hasBlacklistedTokens = useMemo(() => {
+    return tokens.some(token => blacklistedTokens.has(token.tokenId));
+  }, [tokens, blacklistedTokens]);
+
   return (
     <div className="min-h-screen bg-gray-800 text-white flex flex-col">
       {/* Sticky navbar/header */}
@@ -771,8 +776,7 @@ function App() {
             <TopHodls holdings={holdings} />
             <WalletMaintenance
               boxes={demurrageBoxes}
-              holdings={holdings}
-              blacklistedTokens={blacklistedTokens}
+              hasBlacklistedTokens={hasBlacklistedTokens}
               isLoading={loadingDemurrage}
             />
           </div>
@@ -785,7 +789,7 @@ function App() {
             </div>
 
             {/* Transaction Stack - Right 33% */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               {/* Transaction Heatmap - Top 50% */}
               <div id="heatmap" className="flex-1">
                 <TransactionHeatmap

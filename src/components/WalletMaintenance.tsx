@@ -1,7 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock, ExternalLink, CheckCircle, Flame } from 'lucide-react';
-import { format } from 'date-fns';
-import type { Holding } from '../types';
+import { AlertTriangle, Clock, CheckCircle, Flame } from 'lucide-react';
 
 interface DemurrageBox {
   boxId: string;
@@ -13,15 +11,13 @@ interface DemurrageBox {
 
 interface WalletMaintenanceProps {
   boxes: DemurrageBox[];
-  holdings: Holding[];
-  blacklistedTokens: Set<string>;
+  hasBlacklistedTokens: boolean;
   isLoading?: boolean;
 }
 
 export const WalletMaintenance: React.FC<WalletMaintenanceProps> = ({
   boxes,
-  holdings,
-  blacklistedTokens,
+  hasBlacklistedTokens,
   isLoading = false
 }) => {
   const openExplorer = (boxId: string) => {
@@ -33,9 +29,6 @@ export const WalletMaintenance: React.FC<WalletMaintenanceProps> = ({
     if (daysUntil < 90) return 'text-orange-400 bg-orange-500/20';
     return 'text-yellow-400 bg-yellow-500/20';
   };
-
-  // Check if any holdings are blacklisted
-  const hasBlacklistedTokens = holdings.some(h => h.tokenId && blacklistedTokens.has(h.tokenId));
 
   if (isLoading) {
     return (
