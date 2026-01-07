@@ -75,11 +75,11 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
         <table className="w-full min-w-[500px]">
           <thead>
             <tr className="text-gray-400 border-b border-gray-800 text-xs sm:text-sm">
-              <th className="pb-3 md:pb-4 text-left">Category</th>
-              <th className="pb-3 md:pb-4 text-right">Beginning</th>
-              <th className="pb-3 md:pb-4 text-right">Change</th>
-              <th className="pb-3 md:pb-4 text-right">Change %</th>
-              <th className="pb-3 md:pb-4 text-right">Ending</th>
+              <th className="pb-2 md:pb-3 text-left">Category</th>
+              <th className="pb-2 md:pb-3 text-right">Beginning</th>
+              <th className="pb-2 md:pb-3 text-right">Change</th>
+              <th className="pb-2 md:pb-3 text-right">Change %</th>
+              <th className="pb-2 md:pb-3 text-right">Ending</th>
             </tr>
           </thead>
           <tbody>
@@ -92,8 +92,8 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
 
               return (
                 <tr key={category} className="border-b border-gray-800">
-                  <td className="py-3 md:py-4">
-                    <div className="flex items-center gap-2">
+                  <td className="py-2 md:py-3">
+                    <div className="flex items-center gap-1">
                       <div
                         className="w-2 sm:w-3 h-2 sm:h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: colorConfig.primary }}
@@ -101,20 +101,20 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
                       <span className="text-white text-xs sm:text-sm">{category}</span>
                     </div>
                   </td>
-                  <td className="py-3 md:py-4 text-right text-white tabular-nums text-xs sm:text-sm">
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {formatNumber(summary.beginningBalance)}
                   </td>
-                  <td className={`py-3 md:py-4 text-right tabular-nums text-xs sm:text-sm ${
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
                     summary.change === 0 ? 'text-gray-400' : summary.change > 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {summary.change > 0 ? '+' : ''}{formatNumber(summary.change)}
                   </td>
-                  <td className={`py-3 md:py-4 text-right tabular-nums text-xs sm:text-sm ${
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
                     changePercent === 0 ? 'text-gray-400' : changePercent > 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {changePercent > 0 ? '+' : ''}{isFinite(changePercent) ? changePercent.toFixed(2) : '0.00'}%
                   </td>
-                  <td className="py-3 md:py-4 text-right text-white tabular-nums text-xs sm:text-sm">
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {formatNumber(summary.endingBalance)}
                   </td>
                 </tr>
@@ -137,23 +137,23 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({ holdings }) => {
 
               return (
                 <tr className="border-t-2 border-gray-700 font-bold">
-                  <td className="py-3 md:py-4">
+                  <td className="py-2 md:py-3">
                     <span className="text-white text-xs sm:text-sm">TOTAL</span>
                   </td>
-                  <td className="py-3 md:py-4 text-right text-white tabular-nums text-xs sm:text-sm">
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {formatNumber(totals.beginning)}
                   </td>
-                  <td className={`py-3 md:py-4 text-right tabular-nums text-xs sm:text-sm ${
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
                     totals.change === 0 ? 'text-gray-400' : totals.change > 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {totals.change > 0 ? '+' : ''}{formatNumber(totals.change)}
                   </td>
-                  <td className={`py-3 md:py-4 text-right tabular-nums text-xs sm:text-sm ${
+                  <td className={`py-2 md:py-3 text-right tabular-nums text-xs sm:text-sm ${
                     totalChangePercent === 0 ? 'text-gray-400' : totalChangePercent > 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {totalChangePercent > 0 ? '+' : ''}{isFinite(totalChangePercent) ? totalChangePercent.toFixed(2) : '0.00'}%
                   </td>
-                  <td className="py-3 md:py-4 text-right text-white tabular-nums text-xs sm:text-sm">
+                  <td className="py-2 md:py-3 text-right text-white tabular-nums text-xs sm:text-sm">
                     {formatNumber(totals.ending)}
                   </td>
                 </tr>
