@@ -789,7 +789,7 @@ function App() {
             </div>
 
             {/* Transaction Stack - Right 33% */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col">
               {/* Transaction Heatmap - Top 50% */}
               <div id="heatmap" className="flex-1">
                 <TransactionHeatmap
