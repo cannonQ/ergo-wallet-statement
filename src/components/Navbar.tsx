@@ -245,7 +245,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             href={`https://ergexplorer.com/blocks#${systemInfo.currentBlockHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                            className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1"
                           >
                             <span>{systemInfo.currentBlockHeight.toLocaleString()}</span>
                             <ExternalLink size={12} />
@@ -283,7 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         href="https://api.ergoplatform.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                        className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1"
                       >
                         <span>{systemInfo.apiEndpoint}</span>
                         <ExternalLink size={12} />
