@@ -222,6 +222,26 @@ class ErgoApiService {
   }
 
   /**
+   * Get block hash (ID) by block height
+   * Used to create ErgoExplorer links
+   */
+  async getBlockHashByHeight(height: number): Promise<string | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/blocks/at/${height}`);
+      if (response.ok) {
+        const blocks = await response.json();
+        // API returns array of blocks at that height, get the first one
+        if (Array.isArray(blocks) && blocks.length > 0) {
+          return blocks[0].id;
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to fetch block hash for height ${height}:`, error);
+    }
+    return null;
+  }
+
+  /**
    * Fetch total balance for an address (confirmed balance)
    */
   async getAddressBalance(address: string): Promise<BalanceResponse> {

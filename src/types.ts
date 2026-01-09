@@ -62,3 +62,11 @@ export interface Collectible {
     medium?: string; // For artwork
   };
 }
+
+export interface SystemInfo {
+  currentBlockHeight: number;
+  currentBlockHash: string | null;
+  lastFetchTimestamp: number;
+  latestHistoricalMonth: string; // e.g., "2025-12-31"
+  apiEndpoint: string;
+}
