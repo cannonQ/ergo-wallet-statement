@@ -13,6 +13,7 @@ import { TopHodls } from './components/TopHodls';
 import { NFTGallery } from './components/NFTGallery';
 import { CyberVerseGallery } from './components/CyberVerseGallery';
 import { AlertSystem } from './components/AlertSystem';
+import { Footer } from './components/Footer';
 import { ergoApi } from './services/ergoApi';
 import { historicalPrices, isCurrentMonth, type LpPriceResult, type TokenPriceResult } from './services/historicalPrices';
 import { tokenBlacklist } from './services/tokenBlacklist';
@@ -857,6 +858,9 @@ function App() {
           <p className="text-white">{error}</p>
         </div>
       )}
+
+      {/* Footer - Desktop only */}
+      {address && <Footer systemInfo={systemInfo} />}
 
       <AlertSystem
         alerts={alerts}
