@@ -16,7 +16,7 @@ import { AlertSystem } from './components/AlertSystem';
 import { ergoApi } from './services/ergoApi';
 import { historicalPrices, isCurrentMonth, type LpPriceResult, type TokenPriceResult } from './services/historicalPrices';
 import { tokenBlacklist } from './services/tokenBlacklist';
-import type { Alert, Holding } from './types';
+import type { Alert, Holding, SystemInfo } from './types';
 
 interface Token {
   tokenId: string;
@@ -160,6 +160,9 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  // System info state
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
 
   // Load CyberVerse token IDs on mount
   useEffect(() => {
@@ -412,6 +415,20 @@ function App() {
       setBalance(fullBalance.ergBalance);
       setTokens(fullBalance.tokens);
       setIsOnline(true);
+
+      // Fetch system info (block height, hash, latest historical data)
+      const currentHeight = await ergoApi.getCurrentHeight();
+      const currentHash = await ergoApi.getBlockHashByHeight(currentHeight);
+      const blockHeightEntries = await historicalPrices.getBlockHeightEntries();
+      const latestEntry = blockHeightEntries[blockHeightEntries.length - 1];
+
+      setSystemInfo({
+        currentBlockHeight: currentHeight,
+        currentBlockHash: currentHash,
+        lastFetchTimestamp: Date.now(),
+        latestHistoricalMonth: latestEntry?.date || 'Unknown',
+        apiEndpoint: 'api.ergoplatform.com',
+      });
 
       setAlerts(prev => [
         ...prev,
@@ -715,6 +732,7 @@ function App() {
             isLoading={isLoading}
             error={error}
             selectedMonth={selectedMonth}
+            systemInfo={systemInfo}
             onAddressSubmit={handleAddressSubmit}
             onMonthChange={handleMonthChange}
           />

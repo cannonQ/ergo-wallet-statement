@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Menu, X, Copy, CheckCircle, WifiOff, Loader2, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Menu, X, Copy, CheckCircle, WifiOff, Loader2, ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react';
 import { AddressInput } from './AddressInput';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, formatDistanceToNow } from 'date-fns';
+import type { SystemInfo } from '../types';
 
 interface NavbarProps {
   address: string;
@@ -9,6 +10,7 @@ interface NavbarProps {
   isLoading: boolean;
   error?: string | null;
   selectedMonth: Date;
+  systemInfo: SystemInfo | null;
   onAddressSubmit: (address: string) => void;
   onMonthChange: (date: Date) => void;
 }
@@ -19,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isLoading,
   error,
   selectedMonth,
+  systemInfo,
   onAddressSubmit,
   onMonthChange,
 }) => {
@@ -227,6 +230,68 @@ export const Navbar: React.FC<NavbarProps> = ({
                   currentAddress={address}
                 />
               </div>
+
+              {/* System Information */}
+              {systemInfo && (
+                <div>
+                  <h3 className="text-sm font-medium text-white mb-2">System Information</h3>
+                  <div className="bg-gray-800 rounded-lg p-3 space-y-2 text-xs">
+                    {/* Current Block */}
+                    <div className="flex justify-between items-start">
+                      <span className="text-gray-400">Current Block:</span>
+                      <div className="text-right">
+                        {systemInfo.currentBlockHash ? (
+                          <a
+                            href={`https://ergexplorer.com/blocks#${systemInfo.currentBlockHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                          >
+                            <span>{systemInfo.currentBlockHeight.toLocaleString()}</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        ) : (
+                          <span className="text-white">{systemInfo.currentBlockHeight.toLocaleString()}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Last Fetched */}
+                    <div className="flex justify-between items-start">
+                      <span className="text-gray-400">Last Fetched:</span>
+                      <div className="text-right text-white">
+                        <div>{formatDistanceToNow(systemInfo.lastFetchTimestamp, { addSuffix: true })}</div>
+                        <div className="text-[10px] text-gray-500">
+                          {format(systemInfo.lastFetchTimestamp, 'MMM d, h:mm a')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Historical Data */}
+                    <div className="flex justify-between items-start">
+                      <span className="text-gray-400">Historical Data:</span>
+                      <div className="text-right text-white">
+                        <div>Up to {format(new Date(systemInfo.latestHistoricalMonth), "MMM ''yy")}</div>
+                        <div className="text-[10px] text-gray-500">Month-end pricing</div>
+                      </div>
+                    </div>
+
+                    {/* API Endpoint */}
+                    <div className="flex justify-between items-start">
+                      <span className="text-gray-400">API Endpoint:</span>
+                      <a
+                        href="https://api.ergoplatform.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                      >
+                        <span>{systemInfo.apiEndpoint}</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
